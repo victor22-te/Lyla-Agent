@@ -1,0 +1,25 @@
+agent:
+  name: "LYLA"
+  version: "0.1.0"
+  language: "es"
+
+llm:
+  default_provider: "gemini" # opciones: gemini, groq
+  gemini:
+    model: "gemini-2.5-flash"
+    temperature: 0.7
+  groq:
+    model: "llama-3.3-70b-versatile"
+    temperature: 0.7
+
+audio:
+  enabled: true
+  stt_provider: "groq" # opciones: groq (Whisper Cloud API), gemini
+  tts_provider: "edge-tts" # opciones: edge-tts (Cloud), gemini
+  voice: "es-MX-DaliaNeural" # o "es-ES-ElviraNeural", "es-MX-JorgeNeural"
+  temp_audio_dir: "temp_audio"
+
+memory:
+  declarative_path: "config"
+  episodic_db_path: "lyla_memory.db"
+  max_session_history: 20
