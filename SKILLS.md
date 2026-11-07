@@ -20,6 +20,12 @@ Todos los comandos cuentan con **autocompletado mediante la tecla `Tab`** en la 
 | `/stats` | — | Muestra las estadísticas de la sesión actual: tokens de entrada/salida, total de tokens, llamadas por proveedor cloud y tiempo en línea. |
 | `/exit` | `exit`, `salir`, `quit` | Cierra la sesión interactiva de LYLA de forma segura. |
 
+### Atajos de Teclado (Control de Voz en Vivo)
+
+| Atajo | Acción |
+| :--- | :--- |
+| `Espacio` / `Enter` / `q` / `Esc` / `Ctrl+C` | Corta la voz de LYLA inmediatamente mientras está hablando y te devuelve al prompt `Víctor >` para seguir escribiendo **sin salir del CLI**. |
+
 ---
 
 ## 2. Habilidades Automáticas (Skills Pasivas)

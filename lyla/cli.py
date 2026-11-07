@@ -126,6 +126,8 @@ def print_commands_list():
         f"  {BOLD}/memory{RESET}                   : Muestra los recuerdos guardados en Memoria Episódica (SQLite)\n"
         f"  {BOLD}/stats{RESET}                    : Muestra consumo de tokens y llamadas a cada proveedor cloud\n"
         f"  {BOLD}/exit{RESET}                     : Cierra la sesión de LYLA\n"
+        f"\n{CYAN}{BOLD}⌨️  Atajos durante la voz de LYLA:{RESET}\n"
+        f"  {BOLD}[Espacio]{RESET}, {BOLD}[Enter]{RESET}, {BOLD}[q]{RESET}, {BOLD}[Esc]{RESET} o {BOLD}[Ctrl+C]{RESET} : Silencia la voz al instante y devuelve el prompt sin salir del CLI\n"
     )
 
 
@@ -252,7 +254,12 @@ def main():
                 agent.speak_reply(reply)
 
         except KeyboardInterrupt:
-            print(f"\n\n{MAGENTA}LYLA: Interrupción detectada. Hasta luego, Víctor.{RESET}")
+            agent.tts.player.stop()
+            print(f"\n{YELLOW}🔇 [Interrumpido] Puedes seguir escribiendo. (Usa /exit para cerrar LYLA){RESET}\n")
+            continue
+        except EOFError:
+            agent.tts.player.stop()
+            print(f"\n\n{MAGENTA}LYLA: Hasta luego, Víctor.{RESET}")
             break
         except Exception as e:
             print(f"\n{YELLOW}[Error]: {e}{RESET}\n")
