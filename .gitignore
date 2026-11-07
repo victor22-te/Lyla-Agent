@@ -1,0 +1,28 @@
+# Entornos virtuales
+.venv/
+env/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Variables de entorno y credenciales
+.env
+.env.*
+!.env.example
+credentials.json
+token.json
+
+# Audio temporal y base de datos local
+temp_audio/
+*.wav
+*.mp3
+*.ogg
+*.db
+*.sqlite3
+
+# Logs
+*.log
