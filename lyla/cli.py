@@ -13,6 +13,7 @@ CYAN = "\033[96m"
 MAGENTA = "\033[95m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
+PURE_RED = "\033[38;2;255;0;0m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
@@ -20,7 +21,13 @@ RESET = "\033[0m"
 RL_CYAN = f"\001{CYAN}\002"
 RL_RESET = f"\001{RESET}\002"
 
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+ASCII_ART_PATH = ASSETS_DIR / "ascii.txt"
+
 CLI_COMMANDS = [
+    "/comands",
+    "/commands",
+    "/comandos",
     "/voice",
     "/listen",
     "/memory",
@@ -32,6 +39,9 @@ CLI_COMMANDS = [
 ]
 
 BARE_COMMANDS = [
+    "comands",
+    "commands",
+    "comandos",
     "model",
     "modelo",
     "exit",
@@ -97,6 +107,28 @@ def print_models_status(agent: LylaAgent):
     print(f"  {CYAN}Tip:{RESET} Escribe {BOLD}/model{RESET} (o {BOLD}/modelo{RESET}) de nuevo para rotar al siguiente, o {BOLD}/model <número|proveedor|modelo>{RESET}.\n")
 
 
+def load_ascii_art() -> str:
+    """Carga el arte ASCII de Spider-Man 2099 / LYLA desde lyla/assets/ascii.txt en rojo puro."""
+    if ASCII_ART_PATH.exists():
+        art = ASCII_ART_PATH.read_text(encoding="utf-8").rstrip()
+        return f"\n{PURE_RED}{BOLD}{art}{RESET}"
+    return ""
+
+
+def print_commands_list():
+    """Muestra todos los comandos disponibles registrados en SKILLS.md."""
+    print(
+        f"\n{CYAN}{BOLD}📋 Comandos Disponibles en LYLA (SKILLS.md):{RESET}\n"
+        f"  {BOLD}/comands{RESET}                  : Muestra esta lista de comandos disponibles\n"
+        f"  {BOLD}/model{RESET} | {BOLD}/modelo{RESET} [opción] : Cambia al siguiente modelo disponible o selecciona uno específico\n"
+        f"  {BOLD}/voice{RESET}                    : Activa o desactiva la síntesis de voz (Edge-TTS)\n"
+        f"  {BOLD}/listen{RESET}                   : Graba tu voz con micrófono y la transcribe en la nube\n"
+        f"  {BOLD}/memory{RESET}                   : Muestra los recuerdos guardados en Memoria Episódica (SQLite)\n"
+        f"  {BOLD}/stats{RESET}                    : Muestra consumo de tokens y llamadas a cada proveedor cloud\n"
+        f"  {BOLD}/exit{RESET}                     : Cierra la sesión de LYLA\n"
+    )
+
+
 BANNER = f"""
 {CYAN}{BOLD}╔═══════════════════════════════════════════════════════════════╗
 ║   LYLA // Lightweight Yielding Lifeform Assembly (2099)       ║
@@ -114,6 +146,9 @@ def main():
     voice_enabled = args.voice or agent.config.audio_enabled
     active_provider, active_model = agent.router.get_active_model()
 
+    ascii_art = load_ascii_art()
+    if ascii_art:
+        print(ascii_art)
     print(BANNER)
     print(
         f"{GREEN}● Sistema en línea.{RESET} Proveedor por defecto: "
@@ -121,6 +156,7 @@ def main():
     )
     print(
         f"Comandos rápidos (Tab para autocompletar): "
+        f"{BOLD}/comands{RESET} (ver comandos), "
         f"{BOLD}/model{RESET} o {BOLD}/modelo{RESET} (cambiar modelo), "
         f"{BOLD}/voice{RESET} (activar/desactivar voz), "
         f"{BOLD}/listen{RESET} (hablar por micrófono), "
@@ -151,16 +187,8 @@ def main():
                 print(f"\n{MAGENTA}LYLA: Hasta la próxima, Víctor. Guardando estado y memoria...{RESET}")
                 break
 
-            elif cmd in ["/help", "help", "/ayuda"]:
-                print(
-                    f"\n{CYAN}{BOLD}📋 Comandos disponibles:{RESET}\n"
-                    f"  {BOLD}/model{RESET} | {BOLD}/modelo{RESET} [opción] : Cambia al siguiente modelo disponible o selecciona uno específico\n"
-                    f"  {BOLD}/voice{RESET}                    : Activa o desactiva la síntesis de voz\n"
-                    f"  {BOLD}/listen{RESET}                   : Graba tu voz con micrófono y la transcribe en la nube\n"
-                    f"  {BOLD}/memory{RESET}                   : Muestra los recuerdos guardados en SQLite\n"
-                    f"  {BOLD}/stats{RESET}                    : Muestra consumo de tokens y llamadas a cada proveedor\n"
-                    f"  {BOLD}/exit{RESET}                     : Cierra la sesión de LYLA\n"
-                )
+            elif cmd in ["/comands", "/commands", "/comandos", "/help", "/ayuda", "comands", "commands", "comandos", "help"]:
+                print_commands_list()
                 continue
 
             elif cmd in ["/model", "/modelo", "model", "modelo"]:

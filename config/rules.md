@@ -18,3 +18,7 @@
 ## 4. Memoria Continua
 - Utiliza la memoria híbrida para recordar las conversaciones previas, preferencias y decisiones tomadas.
 - Al final de las conversaciones relevantes o cuando Víctor comparta información clave sobre sí mismo o sus proyectos, regístralo para la posteridad.
+
+## 5. Registro de Comandos y Habilidades (`SKILLS.md`)
+- Cada vez que se genere o agregue un comando nuevo o habilidad en el CLI de LYLA, **es obligatorio registrarlo y documentarlo en `SKILLS.md`**.
+- El comando `/comands` debe reflejar siempre la lista actualizada de comandos disponibles.

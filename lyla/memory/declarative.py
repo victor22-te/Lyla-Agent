@@ -9,6 +9,7 @@ class DeclarativeMemory:
         self.config_dir = config_dir
         self.profile_path = config_dir / "profile.md"
         self.rules_path = config_dir / "rules.md"
+        self.skills_path = config_dir.parent / "SKILLS.md"
 
     def get_system_prompt_context(self) -> str:
         parts = []
@@ -16,6 +17,8 @@ class DeclarativeMemory:
             parts.append(self.rules_path.read_text(encoding="utf-8").strip())
         if self.profile_path.exists():
             parts.append("### Contexto del Usuario:\n" + self.profile_path.read_text(encoding="utf-8").strip())
+        if self.skills_path.exists():
+            parts.append("### Comandos y Skills Disponibles:\n" + self.skills_path.read_text(encoding="utf-8").strip())
         return "\n\n---\n\n".join(parts)
 
     def append_preference(self, key_fact: str):

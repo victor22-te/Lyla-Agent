@@ -1,0 +1,33 @@
+# SKILLS & Comandos de LYLA (2099)
+
+Este documento registra todos los comandos interactivos y habilidades (skills) disponibles en el CLI de **LYLA**.
+
+> **Regla de mantenimiento:** Cada vez que se cree o modifique un comando en LYLA, debe agregarse y documentarse en este archivo (`SKILLS.md`).
+
+---
+
+## 1. Comandos del CLI
+
+Todos los comandos cuentan con **autocompletado mediante la tecla `Tab`** en la terminal.
+
+| Comando | Alias soportados | Descripción |
+| :--- | :--- | :--- |
+| `/comands` | `/commands`, `/comandos`, `/help`, `comands` | Muestra la lista de todos los comandos disponibles en el CLI. |
+| `/model [opción]` | `/modelo`, `model`, `modelo` | Sin argumentos, rota al siguiente proveedor/modelo disponible (Gemini ↔ Groq). Con argumento (`/model groq`, `/model gemini`, `/model 2`, `/model openai/gpt-oss-120b`), selecciona ese modelo directamente. Soporta autocompletado de modelos con `Tab`. |
+| `/voice` | — | Activa o desactiva la síntesis de voz en la nube (Edge-TTS) para las respuestas de LYLA. |
+| `/listen` | — | Inicia la grabación de voz por micrófono con PipeWire (`pw-record`), la transcribe en la nube (Groq Whisper / Gemini) y envía el mensaje a LYLA. |
+| `/memory` | — | Consulta y muestra los últimos recuerdos almacenados en la Memoria Episódica (SQLite). |
+| `/stats` | — | Muestra las estadísticas de la sesión actual: tokens de entrada/salida, total de tokens, llamadas por proveedor cloud y tiempo en línea. |
+| `/exit` | `exit`, `salir`, `quit` | Cierra la sesión interactiva de LYLA de forma segura. |
+
+---
+
+## 2. Habilidades Automáticas (Skills Pasivas)
+
+- **Memoria Episódica Automática (`Recuerda que...`):**
+  Al incluir frases como *"recuerda que..."*, *"anota que..."* o *"no olvides que..."* en cualquier mensaje, LYLA extrae el hecho automáticamente y lo guarda de forma persistente en SQLite (`lyla_memory.db`).
+- **Router Multi-Proveedor con Fallback Instantáneo:**
+  Opera con **Google Gemini** (`gemini-3.5-flash`) como proveedor principal y hace fallback automático a **Groq** (`openai/gpt-oss-120b`) en caso de saturación o falta de cuota.
+- **Monitoreo Proactivo ("Oye Víctor..."):**
+  Evalúa el consumo de tokens y latencia por proveedor durante la sesión para sugerir optimizaciones cuando se superan los umbrales configurados.
+
