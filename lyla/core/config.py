@@ -3,12 +3,12 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-# Cargar variables de .env
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 SETTINGS_FILE = CONFIG_DIR / "settings.yaml"
+
+# Cargar variables de .env siempre desde la raíz de lyla-agent (sin importar desde qué directorio se ejecute el HUD/UI)
+load_dotenv(BASE_DIR / ".env")
 
 def load_settings() -> dict:
     if not SETTINGS_FILE.exists():

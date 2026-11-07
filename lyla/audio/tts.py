@@ -18,12 +18,12 @@ class CloudTTS:
         communicate = edge_tts.Communicate(text, self.voice)
         await communicate.save(str(output_path))
 
-    def speak(self, text: str, play_audio: bool = True) -> Path:
+    def speak(self, text: str, play_audio: bool = True, interactive_cli: bool = True) -> Path:
         output_file = self.output_dir / "lyla_response.mp3"
         try:
             asyncio.run(self._generate_audio(text, output_file))
             if play_audio:
-                self.player.play(output_file)
+                self.player.play(output_file, interactive_cli=interactive_cli)
             return output_file
         except KeyboardInterrupt:
             self.player.stop()

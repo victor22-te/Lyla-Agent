@@ -1,3 +1,4 @@
+import os
 import subprocess
 import signal
 import time
@@ -14,9 +15,17 @@ class AudioCapture:
         self.current_file = None
 
     def start_recording(self) -> Path:
+        self.stop_recording()
         self.current_file = self.output_dir / "user_input.wav"
         if self.current_file.exists():
-            self.current_file.unlink()
+            try:
+                self.current_file.unlink()
+            except Exception:
+                pass
+
+        env = os.environ.copy()
+        if "XDG_RUNTIME_DIR" not in env:
+            env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
 
         cmd = [
             "pw-record",
@@ -27,18 +36,24 @@ class AudioCapture:
         ]
         self.current_process = subprocess.Popen(
             cmd,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=env
         )
         return self.current_file
 
     def stop_recording(self) -> Path:
         if self.current_process:
-            self.current_process.send_signal(signal.SIGINT)
             try:
+                self.current_process.send_signal(signal.SIGINT)
                 self.current_process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self.current_process.kill()
+            except Exception:
+                try:
+                    self.current_process.kill()
+                except Exception:
+                    pass
             self.current_process = None
+            time.sleep(0.08)
 
         return self.current_file

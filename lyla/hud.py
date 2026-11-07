@@ -154,7 +154,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app)
         self.set_title("LYLA // SPIDER-MAN 2099 HUD")
-        self.set_default_size(560, 540)
+        self.set_default_size(580, 540)
+        self.set_size_request(420, 380)
         self.set_resizable(True)
         self.add_css_class("lyla-hud-window")
 
@@ -183,9 +184,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         lbl_title = Gtk.Label(label="󱇪  ALCHEMAX 2099 // LYLA NEURAL HUD")
         lbl_title.add_css_class("lyla-title")
         lbl_title.set_xalign(0.0)
+        lbl_title.set_ellipsize(Pango.EllipsizeMode.END)
         self.lbl_sub = Gtk.Label(label="OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK")
         self.lbl_sub.add_css_class("lyla-subtitle")
         self.lbl_sub.set_xalign(0.0)
+        self.lbl_sub.set_ellipsize(Pango.EllipsizeMode.END)
         hdr.append(lbl_title)
         hdr.append(self.lbl_sub)
         main_box.append(hdr)
@@ -195,8 +198,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         main_box.append(mid)
 
         self.canvas = Gtk.DrawingArea()
-        self.canvas.set_content_width(165)
-        self.canvas.set_content_height(165)
+        self.canvas.set_content_width(150)
+        self.canvas.set_content_height(150)
         self.canvas.set_draw_func(self.on_draw)
         mid.append(self.canvas)
 
@@ -208,28 +211,32 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self.lbl_cpu = Gtk.Label(label="  CPU NEURAL: 0%")
         self.lbl_cpu.add_css_class("lyla-metric-label")
         self.lbl_cpu.set_xalign(0.0)
+        self.lbl_cpu.set_ellipsize(Pango.EllipsizeMode.END)
         right.append(self.lbl_cpu)
 
         self.lbl_ram = Gtk.Label(label="󰍛  MEMORIA: 0%")
         self.lbl_ram.add_css_class("lyla-metric-label")
         self.lbl_ram.set_xalign(0.0)
+        self.lbl_ram.set_ellipsize(Pango.EllipsizeMode.END)
         right.append(self.lbl_ram)
 
         self.lbl_model = Gtk.Label(label="󰯊  MODELO: cargando...")
         self.lbl_model.add_css_class("lyla-model-badge")
         self.lbl_model.set_xalign(0.0)
+        self.lbl_model.set_ellipsize(Pango.EllipsizeMode.END)
         right.append(self.lbl_model)
 
         self.lbl_sense = Gtk.Label(label="  SPIDER-SENSE: NOMINAL")
         self.lbl_sense.add_css_class("lyla-subtitle")
         self.lbl_sense.set_xalign(0.0)
+        self.lbl_sense.set_ellipsize(Pango.EllipsizeMode.END)
         right.append(self.lbl_sense)
 
         # Quick Action Buttons
         btn_grid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         right.append(btn_grid)
 
-        # Botón principal de STATUS de Modelos (Tokens & Porcentajes) + Silenciar Voz
+        # Botón principal de STATUS de Modelos (Tokens & Porcentajes) + Voz ON/OFF + Callar
         row_top_btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         btn_grid.append(row_top_btns)
 
@@ -238,6 +245,12 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         b_status.set_hexpand(True)
         b_status.connect("clicked", self.on_show_status)
         row_top_btns.append(b_status)
+
+        self.b_voice_toggle = Gtk.Button(label="  Voz ON" if self.voice_enabled else "  Voz OFF")
+        self.b_voice_toggle.add_css_class("lyla-btn")
+        self.b_voice_toggle.set_tooltip_text("Activar o desactivar respuestas por voz de LYLA")
+        self.b_voice_toggle.connect("clicked", self.on_toggle_voice_mode)
+        row_top_btns.append(self.b_voice_toggle)
 
         self.b_mute = Gtk.Button(label="  Callar")
         self.b_mute.add_css_class("lyla-btn")
@@ -335,6 +348,16 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         prov, mod = self.agent.router.get_active_model()
         v_icon = "" if self.voice_enabled else ""
         self.lbl_model.set_text(f"󰯊  LLM: {prov.upper()} ({mod}) {v_icon}")
+        if hasattr(self, "b_voice_toggle"):
+            self.b_voice_toggle.set_label("  Voz ON" if self.voice_enabled else "  Voz OFF")
+
+    def on_toggle_voice_mode(self, *_):
+        self.voice_enabled = not self.voice_enabled
+        if not self.voice_enabled:
+            self.agent.tts.player.stop()
+        self._refresh_model_badge()
+        state_lbl = "  VOZ DE LYLA ACTIVADA" if self.voice_enabled else "  VOZ DE LYLA DESACTIVADA"
+        self.lbl_sub.set_text(state_lbl)
 
     def append_console(self, text: str):
         end_iter = self.text_buffer.get_end_iter()
@@ -396,7 +419,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self.entry.set_text("")
         self.process_user_input(user_text)
 
-    def process_user_input(self, user_text: str):
+    def process_user_input(self, user_text: str, force_speak: bool = False):
         # Si envía un comando para callar o /exit en el HUD
         if user_text.lower() in ("/exit", "exit", "salir", "quit"):
             self.agent.tts.player.stop()
@@ -411,7 +434,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                 res = self.agent.handle_hud_input(user_text, voice_enabled=self.voice_enabled)
                 self.voice_enabled = res.get("voice_enabled", self.voice_enabled)
                 reply_display = res.get("text", "")
-                should_speak = res.get("speak", False)
+                should_speak = res.get("speak", False) or force_speak
                 raw_reply = res.get("raw_reply", reply_display)
 
                 def _update_ui():
@@ -425,7 +448,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
                 if should_speak and raw_reply:
                     GLib.idle_add(lambda: self.lbl_sub.set_text("  LYLA HABLANDO... (Clic en ' Callar' o [Esc] para detener)") or False)
-                    self.agent.speak_reply(raw_reply)
+                    self.agent.speak_reply(raw_reply, interactive_cli=False, force=True)
                     GLib.idle_add(lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False)
             except Exception as e:
                 GLib.idle_add(lambda: self.append_console(f"  [Error]: {e}") or False)
@@ -465,7 +488,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                             lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
                         )
                         return
-                    GLib.idle_add(lambda: self.process_user_input(transcription) or False)
+                    self.voice_enabled = True
+                    GLib.idle_add(lambda: self.process_user_input(transcription, force_speak=True) or False)
                 except Exception as e:
                     GLib.idle_add(lambda: self.append_console(f"  Error STT: {e}") or False)
 

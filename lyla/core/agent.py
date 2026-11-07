@@ -96,11 +96,13 @@ class LylaAgent:
 
         return reply_text
 
-    def speak_reply(self, reply_text: str):
+    def speak_reply(self, reply_text: str, interactive_cli: bool = True, force: bool = False):
         """Limpia Markdown/iconos y reproduce la respuesta por voz si el audio está habilitado."""
-        if self.config.audio_enabled:
-            clean_speech = re.sub(r'[*_#`]', '', reply_text)
-            self.tts.speak(clean_speech, play_audio=True)
+        if force or self.config.audio_enabled:
+            clean_speech = re.sub(r'[*_#`~|═╔╗╚╝─│]', '', reply_text)
+            clean_speech = re.sub(r'[\ue000-\uf8ff\U000f0000-\U000ffffd]', '', clean_speech).strip()
+            if clean_speech:
+                self.tts.speak(clean_speech, play_audio=True, interactive_cli=interactive_cli)
 
     def _handle_calendar_tags(self, reply_text: str) -> str:
         """Detecta y ejecuta etiquetas [CALENDAR_ADD: ...] y [ALARM_ADD: ...] generadas por LYLA."""

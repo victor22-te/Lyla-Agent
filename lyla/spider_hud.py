@@ -48,6 +48,17 @@ SPIDER_LOGO = [
     r"         V         V         ",
 ]
 
+SPIDER_LOGO_COMPACT = [
+    r"    / /\ \ / .-. \ / /\ \    ",
+    r"   / /  \ | () () | /  \ \   ",
+    r"  /_/ /\ \ \  ^  / / /\ \_\  ",
+    r"  __/ /\ \ / _ _ \ / /\ \__  ",
+    r" /___/  \ V | | | V /  \___\ ",
+    r"   /__/ / \  |_|  / \ \__\   ",
+    r"       \   /  V  \   /       ",
+    r"        \ /       \ /        ",
+]
+
 HUD_COMMANDS = [
     "/comands",
     "/commands",
@@ -157,14 +168,14 @@ def read_top_procs(limit=4):
 
 
 def draw_bar(win, y, x, width, pct, color_pair_fill, color_pair_empty):
-    inner = max(4, width - 2)
+    inner = max(4, width)
     filled = int(round((pct / 100.0) * inner))
     filled = max(0, min(inner, filled))
     try:
-        win.addstr(y, x, "[", curses.color_pair(2) | curses.A_BOLD)
-        win.addstr(y, x + 1, "█" * filled, curses.color_pair(color_pair_fill) | curses.A_BOLD)
-        win.addstr(y, x + 1 + filled, "░" * (inner - filled), curses.color_pair(color_pair_empty))
-        win.addstr(y, x + 1 + inner, "]", curses.color_pair(2) | curses.A_BOLD)
+        if filled > 0:
+            win.addstr(y, x, "━" * filled, curses.color_pair(color_pair_fill) | curses.A_BOLD)
+        if inner - filled > 0:
+            win.addstr(y, x + filled, "─" * (inner - filled), curses.color_pair(color_pair_empty))
     except curses.error:
         pass
 
@@ -249,23 +260,7 @@ def main(stdscr):
                 is_busy = False
                 if should_speak and raw_reply:
                     status_banner = "  LYLA hablando... (Presiona [X] o [Esc] para silenciar la voz)"
-                    # Reproducir voz sin tocar termios de curses
-                    clean_speech = raw_reply.replace("*", "").replace("#", "").replace("`", "")
-                    out_mp3 = agent.tts.output_dir / "lyla_response.mp3"
-                    import asyncio
-                    asyncio.run(agent.tts._generate_audio(clean_speech, out_mp3))
-                    if agent.tts.player.player_cmd:
-                        import subprocess as _sp
-                        agent.tts.player.stop()
-                        agent.tts.player.current_process = _sp.Popen(
-                            agent.tts.player.player_cmd + [str(out_mp3)],
-                            stdin=_sp.DEVNULL,
-                            stdout=_sp.DEVNULL,
-                            stderr=_sp.DEVNULL,
-                            start_new_session=True,
-                        )
-                        while agent.tts.player.current_process and agent.tts.player.current_process.poll() is None:
-                            time.sleep(0.08)
+                    agent.speak_reply(raw_reply, interactive_cli=False, force=True)
                 status_banner = "LISTO — [Enter] escribir │ [V]  Micrófono │ [S] 󰐷 Status Modelos │ [X] Callar"
             except Exception as e:
                 is_busy = False
@@ -425,152 +420,220 @@ def main(stdscr):
         active_prov, active_mod = agent.router.get_active_model()
         v_badge = " VOZ ON" if voice_enabled else " VOZ OFF"
         mode_name = modes[mode_idx][0]
-        header = f"╔══ 󱇪  ALCHEMAX 2099 // LYLA HUD [{mode_name}] • LLM: {active_prov.upper()}:{active_mod} ({v_badge}) ══╗"
+
+        # Header auto-ajustable al ancho de la ventana
+        header_candidates = [
+            f"╔══ 󱇪  ALCHEMAX 2099 // LYLA HUD [{mode_name}] • LLM: {active_prov.upper()}:{active_mod} ({v_badge}) ══╗",
+            f"╔══ 󱇪  ALCHEMAX 2099 // LYLA HUD • LLM: {active_prov.upper()}:{active_mod} ({v_badge}) ══╗",
+            f"╔═ 󱇪  LYLA 2099 • {active_prov.upper()}:{active_mod} ({v_badge}) ═╗",
+            f"󱇪 LYLA 2099 • {active_mod} ({v_badge})",
+        ]
+        header = header_candidates[-1]
+        for hc in header_candidates:
+            if len(hc) <= w - 2:
+                header = hc
+                break
         try:
-            stdscr.addstr(0, max(0, (w - len(header)) // 2), header[: w - 1], curses.color_pair(1) | curses.A_BOLD)
+            stdscr.addstr(0, max(0, (w - len(header)) // 2), header[: max(1, w - 1)], curses.color_pair(1) | curses.A_BOLD)
         except curses.error:
             pass
 
-        # Left Column: Animated Spider-Man 2099 Emblem + Telemetry
-        left_w = 34
-        for idx, line in enumerate(SPIDER_LOGO):
-            y = 2 + idx
-            if y >= h - 9:
-                break
-            col = 1 if (idx + (tick // 3)) % 3 != 0 else 2
-            if pulse_frames > 0:
-                col = 2 if (idx + tick) % 2 == 0 else 1
-            try:
-                stdscr.addstr(y, 2, line, curses.color_pair(col) | curses.A_BOLD)
-            except curses.error:
-                pass
-
         total_cpu = cpu_pcts.get("cpu", 0.0)
-        sense_y = 16
-        if sense_y + 5 < h - 4:
-            try:
-                stdscr.addstr(sense_y, 2, "┌── SPIDER-SENSE TELEMETRY ──┐", curses.color_pair(2) | curses.A_BOLD)
-                wave = "".join(
-                    "▲" if math.sin((i + tick) * 0.6) > 0.3 else ("▼" if math.sin((i + tick) * 0.6) < -0.3 else "─")
-                    for i in range(26)
-                )
-                sense_color = 1 if (total_cpu > 75 or pulse_frames > 0) else 2
-                stdscr.addstr(sense_y + 1, 2, f"│ {wave} │", curses.color_pair(sense_color) | curses.A_BOLD)
-                status_txt = "ALERTA MULTIVERSAL!" if pulse_frames > 0 else ("CARGA ALTA" if total_cpu > 75 else "SIN ANOMALÍAS (2099)")
-                stdscr.addstr(sense_y + 2, 2, f"│ Estado: {status_txt:<18} │", curses.color_pair(4 if total_cpu <= 75 and pulse_frames == 0 else 1) | curses.A_BOLD)
-                stdscr.addstr(sense_y + 3, 2, f"│ Red RX: {rx_rate:6.1f} KB/s        │", curses.color_pair(6))
-                stdscr.addstr(sense_y + 4, 2, f"│ Red TX: {tx_rate:6.1f} KB/s        │", curses.color_pair(6))
-                stdscr.addstr(sense_y + 5, 2, "└────────────────────────────┘", curses.color_pair(2) | curses.A_BOLD)
-            except curses.error:
-                pass
 
-        # Right Column: Upper Telemetry or Model Token/Percentage Status + Lower LYLA Chat Console
-        rx_x = left_w + 2
-        rem_w = max(24, w - rx_x - 2)
+        # Left Column auto-ajustable según ancho (w) y alto (h)
+        show_left_col = w >= 72
+        left_w = 32 if show_left_col else 0
+
+        if show_left_col:
+            logo_to_use = SPIDER_LOGO if h >= 26 else (SPIDER_LOGO_COMPACT if h >= 19 else [])
+            for idx, line in enumerate(logo_to_use):
+                y = 2 + idx
+                if y >= h - 6:
+                    break
+                col = 1 if (idx + (tick // 3)) % 3 != 0 else 2
+                if pulse_frames > 0:
+                    col = 2 if (idx + tick) % 2 == 0 else 1
+                try:
+                    stdscr.addstr(y, 2, line[:left_w], curses.color_pair(col) | curses.A_BOLD)
+                except curses.error:
+                    pass
+
+            sense_y = 2 + len(logo_to_use) + (1 if h >= 27 else 0)
+            if sense_y + 5 <= h - 4:
+                try:
+                    stdscr.addstr(sense_y, 2, "┌── SPIDER-SENSE TELEMETRY ──┐", curses.color_pair(2) | curses.A_BOLD)
+                    wave = "".join(
+                        "▲" if math.sin((i + tick) * 0.6) > 0.3 else ("▼" if math.sin((i + tick) * 0.6) < -0.3 else "─")
+                        for i in range(26)
+                    )
+                    sense_color = 1 if (total_cpu > 75 or pulse_frames > 0) else 2
+                    stdscr.addstr(sense_y + 1, 2, f"│ {wave} │", curses.color_pair(sense_color) | curses.A_BOLD)
+                    status_txt = "ALERTA MULTIVERSAL!" if pulse_frames > 0 else ("CARGA ALTA" if total_cpu > 75 else "SIN ANOMALÍAS (2099)")
+                    stdscr.addstr(sense_y + 2, 2, f"│ Estado: {status_txt:<18} │", curses.color_pair(4 if total_cpu <= 75 and pulse_frames == 0 else 1) | curses.A_BOLD)
+                    stdscr.addstr(sense_y + 3, 2, f"│ Red RX: {rx_rate:6.1f} KB/s        │", curses.color_pair(6))
+                    stdscr.addstr(sense_y + 4, 2, f"│ Red TX: {tx_rate:6.1f} KB/s        │", curses.color_pair(6))
+                    stdscr.addstr(sense_y + 5, 2, "└────────────────────────────┘", curses.color_pair(2) | curses.A_BOLD)
+                except curses.error:
+                    pass
+
+        # Right Column: Upper Telemetry List or Model Status + Lower LYLA Chat Console
+        rx_x = (left_w + 3) if show_left_col else 2
+        rem_w = max(20, w - rx_x - 2)
+        chat_bottom = h - 4
+        min_chat_rows = 4 if h < 24 else 5
 
         try:
             if show_status_panel:
-                # PANEL DE STATUS DE MODELOS (TOKENS & PORCENTAJES %)
-                stdscr.addstr(2, rx_x, "󰐷  STATUS DE MODELOS CLOUD (TOKENS & PORCENTAJES DE CUOTA DIARIA) — [S] Volver", curses.color_pair(5) | curses.A_BOLD)
+                # PANEL DE STATUS DE MODELOS EN LISTA AUTO-AJUSTABLE
+                st_title = "󰐷  STATUS DE MODELOS CLOUD (TOKENS & % CUOTA HOY) — [S] Volver"
+                stdscr.addstr(2, rx_x, st_title[:rem_w], curses.color_pair(5) | curses.A_BOLD)
                 report = agent.get_models_status_report()
-                ry = 4
+                ry = 3
+                max_status_y = max(ry + 1, chat_bottom - min_chat_rows - 1)
                 for item in report:
-                    if ry >= (h // 2) + 2:
+                    if ry >= max_status_y:
                         break
-                    mark = "●" if item["active"] else " "
+                    mark = "●" if item["active"] else "○"
                     col_m = 4 if item["active"] else 6
-                    label = f"{mark} {item['provider'].upper():<6} {item['model']:<21}"
-                    stats_str = f"{item['tokens_total']:>6}/{item['daily_limit']:<7} ({item['used_pct']:5.1f}% usado │ {item['remaining_pct']:5.1f}% libre)"
-                    stdscr.addstr(ry, rx_x, label[:rem_w], curses.color_pair(col_m) | curses.A_BOLD)
-                    if rem_w > 55:
-                        stdscr.addstr(ry, rx_x + 30, stats_str[: rem_w - 30], curses.color_pair(2))
-                    if rem_w > 85:
-                        draw_bar(stdscr, ry, rx_x + 82, min(20, rem_w - 83), item["used_pct"], 1, 3)
+                    if rem_w >= 76:
+                        line_str = (
+                            f" {mark} {item['provider'].upper():<6} {item['model']:<21} "
+                            f"{item['tokens_total']:>6}/{item['daily_limit']:<7} "
+                            f"({item['used_pct']:5.1f}% usado │ {item['remaining_pct']:5.1f}% libre)"
+                        )
+                    else:
+                        line_str = (
+                            f" {mark} {item['provider'].upper()}:{item['model']} "
+                            f"• {item['tokens_total']} tk ({item['used_pct']:.1f}% usado)"
+                        )
+                    stdscr.addstr(ry, rx_x, line_str[:rem_w], curses.color_pair(col_m) | (curses.A_BOLD if item["active"] else 0))
                     ry += 1
-                cy_chat_top = ry + 1
+                cy_chat_top = ry + 2
             else:
-                # TELEMETRÍA NORMAL (CPU + RAM)
-                stdscr.addstr(2, rx_x, "  NÚCLEOS NEURALES (CPU MATRIX)", curses.color_pair(2) | curses.A_BOLD)
-                stdscr.addstr(3, rx_x, f"Carga Global: {total_cpu:5.1f}%", curses.color_pair(1) | curses.A_BOLD)
-                draw_bar(stdscr, 3, rx_x + 22, rem_w - 22, total_cpu, 1, 3)
-
-                core_keys = sorted([k for k in cpu_pcts.keys() if k != "cpu"])
-                cy = 4
-                for i in range(0, min(len(core_keys), 8), 2):
-                    if cy >= 8:
-                        break
-                    k1 = core_keys[i]
-                    p1 = cpu_pcts.get(k1, 0.0)
-                    col_w = (rem_w // 2) - 1
-                    stdscr.addstr(cy, rx_x, f"{k1.upper():<4} {p1:4.0f}%", curses.color_pair(6))
-                    draw_bar(stdscr, cy, rx_x + 11, max(6, col_w - 12), p1, 2, 3)
-
-                    if i + 1 < len(core_keys):
-                        k2 = core_keys[i + 1]
-                        p2 = cpu_pcts.get(k2, 0.0)
-                        x2 = rx_x + col_w + 1
-                        stdscr.addstr(cy, x2, f"{k2.upper():<4} {p2:4.0f}%", curses.color_pair(6))
-                        draw_bar(stdscr, cy, x2 + 11, max(6, col_w - 12), p2, 2, 3)
-                    cy += 1
+                # TELEMETRÍA EN LISTA VERTICAL (CPU + NÚCLEOS + RAM) AUTO-AJUSTABLE
+                tele_title = "  TELEMETRÍA DEL SISTEMA (LISTA DE NÚCLEOS & MEMORIA)"
+                stdscr.addstr(2, rx_x, tele_title[:rem_w], curses.color_pair(2) | curses.A_BOLD)
 
                 used_gb, total_gb, mem_pct, _, _ = read_memory()
-                my = cy
-                stdscr.addstr(my, rx_x, f"󰍛  RAM : {used_gb:4.1f}/{total_gb:4.1f} GiB ({mem_pct:4.1f}%)", curses.color_pair(2) | curses.A_BOLD)
-                draw_bar(stdscr, my, rx_x + 29, rem_w - 29, mem_pct, 1, 3)
-                cy_chat_top = my + 2
+                core_keys = sorted([k for k in cpu_pcts.keys() if k != "cpu"])
 
-            # CONSOLA INTERACTIVA DE LYLA EN EL HUD
-            chat_bottom = h - 5
-            chat_height = max(3, chat_bottom - cy_chat_top)
-            stdscr.addstr(
-                cy_chat_top - 1,
-                rx_x,
-                "╔══ 󱇪  COMUNICACIÓN NEURAL CON LYLA 2099 (Comandos y Voz Activos) ══╗"[:rem_w],
-                curses.color_pair(1) | curses.A_BOLD,
-            )
+                # Construir elementos de la lista vertical
+                list_items = [
+                    ("  CPU Global", total_cpu, 1, f"{total_cpu:5.1f}%", ""),
+                    ("󰍛  Memoria RAM", mem_pct, 2, f"{mem_pct:5.1f}%", f"{used_gb:.1f}/{total_gb:.1f} GiB"),
+                ]
+                if not show_left_col:
+                    list_items.append(("  Red RX/TX", 0.0, 4, f"{rx_rate:.1f}/{tx_rate:.1f} KB/s", ""))
 
-            wrapped_lines = []
-            wrap_w = max(20, rem_w - 2)
-            for raw_l in chat_logs[-30:]:
-                if not raw_l.strip():
-                    wrapped_lines.append("")
-                else:
-                    wrapped_lines.extend(textwrap.wrap(raw_l, width=wrap_w) or [""])
+                # Calcular cuántos núcleos caben verticalmente sin comerse el chat de LYLA
+                max_list_end_y = max(6, chat_bottom - min_chat_rows - 1)
+                avail_core_rows = max(0, max_list_end_y - (3 + len(list_items)))
 
-            visible_lines = wrapped_lines[-chat_height:]
-            for idx_l, wline in enumerate(visible_lines):
-                ly = cy_chat_top + idx_l
-                if ly >= chat_bottom:
-                    break
-                l_col = 2 if wline.startswith("Víctor >") else (4 if wline.startswith("󰯊") else 6)
-                if wline.startswith("LYLA"):
-                    l_col = 1
-                stdscr.addstr(ly, rx_x, wline[:rem_w], curses.color_pair(l_col))
+                if avail_core_rows >= len(core_keys):
+                    for k in core_keys:
+                        p = cpu_pcts.get(k, 0.0)
+                        list_items.append((f"  Núcleo {k.upper()}", p, 2, f"{p:5.1f}%", ""))
+                elif avail_core_rows > 0:
+                    shown_cores = max(0, avail_core_rows - 1)
+                    for k in core_keys[:shown_cores]:
+                        p = cpu_pcts.get(k, 0.0)
+                        list_items.append((f"  Núcleo {k.upper()}", p, 2, f"{p:5.1f}%", ""))
+                    rem_cores = core_keys[shown_cores:]
+                    if rem_cores:
+                        avg_rem = sum(cpu_pcts.get(rk, 0.0) for rk in rem_cores) / len(rem_cores)
+                        lbl_rem = f"  {rem_cores[0].upper()}..{rem_cores[-1].upper()}"
+                        list_items.append((lbl_rem, avg_rem, 2, f"{avg_rem:5.1f}%", "(prom)"))
+
+                cy = 3
+                label_col_w = 24
+                bar_w = max(8, min(20, rem_w - label_col_w - 16)) if rem_w >= 48 else max(6, rem_w - label_col_w - 2)
+
+                for lbl, pct_val, bar_col, val_str, extra_txt in list_items:
+                    if cy >= max_list_end_y:
+                        break
+                    row_prefix = f" • {lbl:<14} {val_str:>6}  "
+                    stdscr.addstr(cy, rx_x, row_prefix[:rem_w], curses.color_pair(6) | (curses.A_BOLD if "Global" in lbl or "RAM" in lbl else 0))
+                    bar_x = rx_x + len(row_prefix)
+                    if bar_x + bar_w < rx_x + rem_w:
+                        draw_bar(stdscr, cy, bar_x, bar_w, pct_val, bar_col, 3)
+                        if extra_txt and (bar_x + bar_w + 2 + len(extra_txt) <= rx_x + rem_w):
+                            stdscr.addstr(cy, bar_x + bar_w + 2, extra_txt, curses.color_pair(2))
+                    cy += 1
+
+                cy_chat_top = cy + 2
+
+            # CONSOLA INTERACTIVA DE LYLA EN EL HUD (AUTO-AJUSTADA)
+            if cy_chat_top < chat_bottom:
+                chat_hdr_candidates = [
+                    "╔══ 󱇪  COMUNICACIÓN NEURAL CON LYLA 2099 (Comandos y Voz Activos) ══╗",
+                    "╔══ 󱇪  COMUNICACIÓN NEURAL CON LYLA 2099 ══╗",
+                    "󱇪  CONSOLA NEURAL LYLA 2099",
+                ]
+                chat_hdr = chat_hdr_candidates[-1]
+                for chc in chat_hdr_candidates:
+                    if len(chc) <= rem_w:
+                        chat_hdr = chc
+                        break
+                stdscr.addstr(
+                    cy_chat_top - 1,
+                    rx_x,
+                    chat_hdr[:rem_w],
+                    curses.color_pair(1) | curses.A_BOLD,
+                )
+
+                chat_height = max(1, chat_bottom - cy_chat_top)
+                wrapped_lines = []
+                wrap_w = max(18, rem_w - 2)
+                for raw_l in chat_logs[-30:]:
+                    if not raw_l.strip():
+                        wrapped_lines.append("")
+                    else:
+                        wrapped_lines.extend(textwrap.wrap(raw_l, width=wrap_w) or [""])
+
+                visible_lines = wrapped_lines[-chat_height:]
+                for idx_l, wline in enumerate(visible_lines):
+                    ly = cy_chat_top + idx_l
+                    if ly >= chat_bottom:
+                        break
+                    l_col = 2 if wline.startswith("Víctor >") else (4 if wline.startswith("󰯊") else 6)
+                    if wline.startswith("LYLA"):
+                        l_col = 1
+                    stdscr.addstr(ly, rx_x, wline[:rem_w], curses.color_pair(l_col))
 
         except curses.error:
             pass
 
         # =====================================================================
-        # BARRA DE TEXTO + BOTÓN MICRÓFONO + BOTÓN STATUS EN LA PARTE INFERIOR
+        # BARRA DE TEXTO + BOTÓN MICRÓFONO + BOTÓN STATUS (AUTO-AJUSTABLE)
         # =====================================================================
-        bar_y = h - 3
-        status_y = h - 4
-        if bar_y > 6:
+        bar_y = h - 2
+        status_y = h - 3
+        if bar_y > 5:
             try:
-                stdscr.addstr(status_y, 2, f"  {status_banner}"[: w - 4], curses.color_pair(5) | curses.A_BOLD)
+                stdscr.addstr(status_y, 2, f"  {status_banner}"[: max(1, w - 4)], curses.color_pair(5) | curses.A_BOLD)
 
-                mic_label = " [󰒊 ENVIAR VOZ (V)] " if is_recording else " [ MIC (V)] "
-                stat_label = " [󰐷 STATUS TOKENS/% (S)] "
-                right_btns_w = len(mic_label) + len(stat_label) + 4
-                entry_w = max(16, w - right_btns_w - 4)
+                if w >= 96:
+                    mic_label = " [󰒊 ENVIAR VOZ (V)] " if is_recording else " [ MIC (V)] "
+                    stat_label = " [󰐷 STATUS TOKENS/% (S)] "
+                    prompt_prefix = "Víctor (ESCRIBIENDO) > " if typing_mode else "Víctor [Enter] > "
+                elif w >= 72:
+                    mic_label = " [󰒊 ENVIAR (V)] " if is_recording else " [ MIC (V)] "
+                    stat_label = " [󰐷 STATUS (S)] "
+                    prompt_prefix = "Víctor > "
+                else:
+                    mic_label = " [󰒊 V] " if is_recording else " [ V] "
+                    stat_label = " [󰐷 S] "
+                    prompt_prefix = "> "
 
-                prompt_prefix = "Víctor (ESCRIBIENDO) > " if typing_mode else "Víctor [Enter para escribir] > "
-                avail_txt_w = max(5, entry_w - len(prompt_prefix) - 2)
+                right_btns_w = len(mic_label) + len(stat_label) + 3
+                entry_w = max(12, w - right_btns_w - 4)
+
+                avail_txt_w = max(4, entry_w - len(prompt_prefix) - 2)
                 shown_input = input_buffer[-avail_txt_w:] if input_buffer else ""
                 cursor_char = "█" if (typing_mode and (tick % 2 == 0)) else ""
 
                 box_text = f"{prompt_prefix}{shown_input}{cursor_char}"
-                box_padded = f"[{box_text:<{entry_w - 2}}]"
+                box_padded = f"[{box_text:<{max(1, entry_w - 2)}}]"
 
                 input_col = curses.color_pair(2) | curses.A_BOLD if typing_mode else curses.color_pair(6)
                 stdscr.addstr(bar_y, 2, box_padded[:entry_w], input_col)
@@ -579,22 +642,33 @@ def main(stdscr):
                 # Botón Micrófono al lado de la barra de texto
                 mic_x = 3 + entry_w
                 mic_col = (curses.color_pair(1) | curses.A_REVERSE | curses.A_BOLD) if is_recording else (curses.color_pair(1) | curses.A_BOLD)
-                stdscr.addstr(bar_y, mic_x, mic_label, mic_col)
-                mic_btn_coords = (bar_y, mic_x, mic_x + len(mic_label))
+                if mic_x + len(mic_label) < w:
+                    stdscr.addstr(bar_y, mic_x, mic_label, mic_col)
+                    mic_btn_coords = (bar_y, mic_x, mic_x + len(mic_label))
 
                 # Botón Status de Modelos (Tokens & %) al lado del micrófono
                 stat_x = mic_x + len(mic_label) + 1
                 stat_col = (curses.color_pair(4) | curses.A_REVERSE | curses.A_BOLD) if show_status_panel else (curses.color_pair(2) | curses.A_BOLD)
-                if stat_x + len(stat_label) < w - 1:
+                if stat_x + len(stat_label) < w:
                     stdscr.addstr(bar_y, stat_x, stat_label, stat_col)
                     status_btn_coords = (bar_y, stat_x, stat_x + len(stat_label))
             except curses.error:
                 pass
 
-        # Footer Controls
-        footer = " [Enter] Escribir/Comandos (Tab autocompleta) │ [V]  Mic │ [S] 󰐷 Status Tokens/% │ [X] Callar │ [M] Traje │ [Q] Salir "
+        # Footer Controls auto-ajustable al ancho de la ventana
+        footer_candidates = [
+            " [Enter] Escribir/Comandos (Tab) │ [V]  Mic │ [S] 󰐷 Status Tokens/% │ [X] Callar │ [M] Traje │ [Q] Salir ",
+            " [Enter] Escribir (Tab) │ [V]  Mic │ [S] 󰐷 Status/% │ [X] Callar │ [M] Traje │ [Q] Salir ",
+            " [Enter] Chat/Cmd │ [V]  Mic │ [S] 󰐷 Status │ [X] Callar │ [M] Traje │ [Q] Salir ",
+            " [Enter] Chat │ [V]  │ [S] 󰐷 │ [X] Callar │ [M] │ [Q] Salir ",
+        ]
+        footer = footer_candidates[-1]
+        for fc in footer_candidates:
+            if len(fc) <= w - 2:
+                footer = fc
+                break
         try:
-            stdscr.addstr(h - 1, max(0, (w - len(footer)) // 2), footer[: w - 1], curses.color_pair(2) | curses.A_REVERSE | curses.A_BOLD)
+            stdscr.addstr(h - 1, max(0, (w - len(footer)) // 2), footer[: max(1, w - 1)], curses.color_pair(2) | curses.A_REVERSE | curses.A_BOLD)
         except curses.error:
             pass
 
