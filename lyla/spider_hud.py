@@ -4,8 +4,8 @@ SPIDER-MAN 2099 // LYLA TACTICAL CYBER-HUD (Terminal Monitor + AI Voice/Text Int
 Interactive futuristic system telemetry, LLM token/percentage status, and live LYLA chat/voice HUD.
 Controls (Normal Mode):
   [Enter] / [t] / [/] : Enfocar barra de texto para hablar con LYLA o ejecutar comandos (/model, /status, /comands...)
-  [v] o Clic en [🎤]  : Hablar por micrófono con LYLA (iniciar/detener grabación)
-  [s] o Clic en [📊]  : Mostrar/Ocultar panel de Status de Modelos (Tokens & Porcentajes %)
+  [v] o Clic en []   : Hablar por micrófono con LYLA (iniciar/detener grabación)
+  [s] o Clic en [󰐷]   : Mostrar/Ocultar panel de Status de Modelos (Tokens & Porcentajes %)
   [x]                 : Silenciar la voz de LYLA inmediatamente
   [m]                 : Cambiar modo de color (2099 Carmesí/Cian, Miles Morales, Simbionte)
   [p]                 : Pulso de Telaraña / Escaneo Multiversal
@@ -213,7 +213,7 @@ def main(stdscr):
 
     prov_init, mod_init = agent.router.get_active_model()
     chat_logs = [
-        f"● LYLA 2099 EN LÍNEA — Modelo activo: {prov_init} ({mod_init})",
+        f"󰯊  LYLA 2099 EN LÍNEA — Modelo activo: {prov_init} ({mod_init})",
         "Escribe comandos (/comands, /model, /status, /calendar, /alarm, /sys) o habla con LYLA.",
     ]
 
@@ -233,7 +233,7 @@ def main(stdscr):
 
         add_chat_log(f"Víctor > {user_text}")
         is_busy = True
-        status_banner = "⏳ LYLA procesando en la nube 2099..."
+        status_banner = "  LYLA procesando en la nube 2099..."
 
         def _worker():
             nonlocal voice_enabled, is_busy, status_banner
@@ -248,7 +248,7 @@ def main(stdscr):
                     add_chat_log(reply_txt)
                 is_busy = False
                 if should_speak and raw_reply:
-                    status_banner = "🔊 LYLA hablando... (Presiona [X] o [Esc] para silenciar la voz)"
+                    status_banner = "  LYLA hablando... (Presiona [X] o [Esc] para silenciar la voz)"
                     # Reproducir voz sin tocar termios de curses
                     clean_speech = raw_reply.replace("*", "").replace("#", "").replace("`", "")
                     out_mp3 = agent.tts.output_dir / "lyla_response.mp3"
@@ -266,11 +266,11 @@ def main(stdscr):
                         )
                         while agent.tts.player.current_process and agent.tts.player.current_process.poll() is None:
                             time.sleep(0.08)
-                status_banner = "LISTO — [Enter] escribir │ [V] 🎤 Micrófono │ [S] 📊 Status Modelos │ [X] Callar"
+                status_banner = "LISTO — [Enter] escribir │ [V]  Micrófono │ [S] 󰐷 Status Modelos │ [X] Callar"
             except Exception as e:
                 is_busy = False
-                add_chat_log(f"⚠️ [Error]: {e}")
-                status_banner = "LISTO — [Enter] escribir │ [V] 🎤 Micrófono │ [S] 📊 Status Modelos"
+                add_chat_log(f"  [Error]: {e}")
+                status_banner = "LISTO — [Enter] escribir │ [V]  Micrófono │ [S] 󰐷 Status Modelos"
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -280,11 +280,11 @@ def main(stdscr):
             agent.tts.player.stop()
             is_recording = True
             rec_file = agent.capture.start_recording()
-            status_banner = "🎤 GRABANDO VOZ CON PIPEWIRE... Presiona [V] o clic en [⏹ ENVIAR] para terminar"
+            status_banner = "  GRABANDO VOZ CON PIPEWIRE... Presiona [V] o clic en [󰒊 ENVIAR] para terminar"
         else:
             is_recording = False
             agent.capture.stop_recording()
-            status_banner = "⏳ Transcribiendo audio en la nube (Groq Whisper / Gemini)..."
+            status_banner = "  Transcribiendo audio en la nube (Groq Whisper / Gemini)..."
             r_path = rec_file
 
             def _stt_job():
@@ -292,13 +292,13 @@ def main(stdscr):
                 try:
                     transcription = agent.stt.transcribe(r_path) if r_path else ""
                     if not transcription:
-                        add_chat_log("⚠️ No se detectó voz clara en el micrófono.")
-                        status_banner = "LISTO — [Enter] escribir │ [V] 🎤 Micrófono │ [S] 📊 Status Modelos"
+                        add_chat_log("  No se detectó voz clara en el micrófono.")
+                        status_banner = "LISTO — [Enter] escribir │ [V]  Micrófono │ [S] 󰐷 Status Modelos"
                         return
                     send_to_lyla(transcription)
                 except Exception as e:
-                    add_chat_log(f"⚠️ Error STT: {e}")
-                    status_banner = "LISTO — [Enter] escribir │ [V] 🎤 Micrófono │ [S] 📊 Status Modelos"
+                    add_chat_log(f"  Error STT: {e}")
+                    status_banner = "LISTO — [Enter] escribir │ [V]  Micrófono │ [S] 󰐷 Status Modelos"
 
             threading.Thread(target=_stt_job, daemon=True).start()
 
@@ -381,7 +381,7 @@ def main(stdscr):
                     break
                 elif ch == 27 or ch in (ord("x"), ord("X"), ord(" ")):
                     agent.tts.player.stop()
-                    status_banner = "🔇 Voz de LYLA silenciada."
+                    status_banner = "  Voz de LYLA silenciada."
                 elif ch in (10, 13, curses.KEY_ENTER, ord("t"), ord("T")):
                     typing_mode = True
                 elif ch == ord("/"):
@@ -423,7 +423,7 @@ def main(stdscr):
         h, w = stdscr.getmaxyx()
 
         active_prov, active_mod = agent.router.get_active_model()
-        v_badge = "🔊 VOZ ON" if voice_enabled else "🔇 VOZ OFF"
+        v_badge = " VOZ ON" if voice_enabled else " VOZ OFF"
         mode_name = modes[mode_idx][0]
         header = f"╔══ 󱇪  ALCHEMAX 2099 // LYLA HUD [{mode_name}] • LLM: {active_prov.upper()}:{active_mod} ({v_badge}) ══╗"
         try:
@@ -471,7 +471,7 @@ def main(stdscr):
         try:
             if show_status_panel:
                 # PANEL DE STATUS DE MODELOS (TOKENS & PORCENTAJES %)
-                stdscr.addstr(2, rx_x, "📊 STATUS DE MODELOS CLOUD (TOKENS & PORCENTAJES DE CUOTA DIARIA) — [S] Volver", curses.color_pair(5) | curses.A_BOLD)
+                stdscr.addstr(2, rx_x, "󰐷  STATUS DE MODELOS CLOUD (TOKENS & PORCENTAJES DE CUOTA DIARIA) — [S] Volver", curses.color_pair(5) | curses.A_BOLD)
                 report = agent.get_models_status_report()
                 ry = 4
                 for item in report:
@@ -525,7 +525,7 @@ def main(stdscr):
             stdscr.addstr(
                 cy_chat_top - 1,
                 rx_x,
-                "╔══ 🤖 COMUNICACIÓN NEURAL CON LYLA 2099 (Comandos y Voz Activos) ══╗"[:rem_w],
+                "╔══ 󱇪  COMUNICACIÓN NEURAL CON LYLA 2099 (Comandos y Voz Activos) ══╗"[:rem_w],
                 curses.color_pair(1) | curses.A_BOLD,
             )
 
@@ -542,7 +542,7 @@ def main(stdscr):
                 ly = cy_chat_top + idx_l
                 if ly >= chat_bottom:
                     break
-                l_col = 2 if wline.startswith("Víctor >") else (4 if wline.startswith("●") else 6)
+                l_col = 2 if wline.startswith("Víctor >") else (4 if wline.startswith("󰯊") else 6)
                 if wline.startswith("LYLA"):
                     l_col = 1
                 stdscr.addstr(ly, rx_x, wline[:rem_w], curses.color_pair(l_col))
@@ -557,10 +557,10 @@ def main(stdscr):
         status_y = h - 4
         if bar_y > 6:
             try:
-                stdscr.addstr(status_y, 2, f"⚡ {status_banner}"[: w - 4], curses.color_pair(5) | curses.A_BOLD)
+                stdscr.addstr(status_y, 2, f"  {status_banner}"[: w - 4], curses.color_pair(5) | curses.A_BOLD)
 
-                mic_label = " [⏹ ENVIAR VOZ (V)] " if is_recording else " [🎤 MIC (V)] "
-                stat_label = " [📊 STATUS TOKENS/% (S)] "
+                mic_label = " [󰒊 ENVIAR VOZ (V)] " if is_recording else " [ MIC (V)] "
+                stat_label = " [󰐷 STATUS TOKENS/% (S)] "
                 right_btns_w = len(mic_label) + len(stat_label) + 4
                 entry_w = max(16, w - right_btns_w - 4)
 
@@ -592,7 +592,7 @@ def main(stdscr):
                 pass
 
         # Footer Controls
-        footer = " [Enter] Escribir/Comandos (Tab autocompleta) │ [V] 🎤 Mic │ [S] 📊 Status Tokens/% │ [X] Callar │ [M] Traje │ [Q] Salir "
+        footer = " [Enter] Escribir/Comandos (Tab autocompleta) │ [V]  Mic │ [S] 󰐷 Status Tokens/% │ [X] Callar │ [M] Traje │ [Q] Salir "
         try:
             stdscr.addstr(h - 1, max(0, (w - len(footer)) // 2), footer[: w - 1], curses.color_pair(2) | curses.A_REVERSE | curses.A_BOLD)
         except curses.error:

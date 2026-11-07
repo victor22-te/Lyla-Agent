@@ -215,7 +215,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self.lbl_ram.set_xalign(0.0)
         right.append(self.lbl_ram)
 
-        self.lbl_model = Gtk.Label(label="🤖 MODELO: cargando...")
+        self.lbl_model = Gtk.Label(label="󰯊  MODELO: cargando...")
         self.lbl_model.add_css_class("lyla-model-badge")
         self.lbl_model.set_xalign(0.0)
         right.append(self.lbl_model)
@@ -233,13 +233,13 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         row_top_btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         btn_grid.append(row_top_btns)
 
-        b_status = Gtk.Button(label="📊 Status Modelos (Tokens/%)")
+        b_status = Gtk.Button(label="󰐷  Status Modelos (Tokens/%)")
         b_status.add_css_class("lyla-btn-status")
         b_status.set_hexpand(True)
         b_status.connect("clicked", self.on_show_status)
         row_top_btns.append(b_status)
 
-        self.b_mute = Gtk.Button(label="🔇 Callar")
+        self.b_mute = Gtk.Button(label="  Callar")
         self.b_mute.add_css_class("lyla-btn")
         self.b_mute.set_tooltip_text("Detiene inmediatamente la voz de LYLA")
         self.b_mute.connect("clicked", self.on_stop_voice)
@@ -249,13 +249,13 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         row_sys_btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         btn_grid.append(row_sys_btns)
 
-        b_term = Gtk.Button(label=" Terminal")
+        b_term = Gtk.Button(label="  Terminal")
         b_term.add_css_class("lyla-btn")
         b_term.set_hexpand(True)
         b_term.connect("clicked", lambda *_: subprocess.Popen(["kitty"]))
         row_sys_btns.append(b_term)
 
-        b_tui = Gtk.Button(label="󰐷 TUI HUD")
+        b_tui = Gtk.Button(label="󰯊  TUI HUD")
         b_tui.add_css_class("lyla-btn")
         b_tui.set_hexpand(True)
         b_tui.connect(
@@ -266,7 +266,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         )
         row_sys_btns.append(b_tui)
 
-        b_wall = Gtk.Button(label="󰋩 Fondo")
+        b_wall = Gtk.Button(label="󰋩  Fondo")
         b_wall.add_css_class("lyla-btn")
         b_wall.set_hexpand(True)
         b_wall.connect("clicked", self.on_switch_wallpaper)
@@ -308,12 +308,12 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         key_ctrl.connect("key-pressed", self.on_entry_key_pressed)
         self.entry.add_controller(key_ctrl)
 
-        b_send = Gtk.Button(label="󰒊 Enviar")
+        b_send = Gtk.Button(label="󰒊  Enviar")
         b_send.add_css_class("lyla-btn")
         b_send.connect("clicked", self.on_send_text)
         chat_bar.append(b_send)
 
-        self.b_mic = Gtk.Button(label="🎤 Hablar")
+        self.b_mic = Gtk.Button(label="  Hablar")
         self.b_mic.add_css_class("lyla-btn-mic")
         self.b_mic.set_tooltip_text("Hablar por micrófono con LYLA (clic para grabar, clic para enviar)")
         self.b_mic.connect("clicked", self.on_toggle_mic)
@@ -323,8 +323,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         prov, mod = self.agent.router.get_active_model()
         self._refresh_model_badge()
         self.append_console(
-            f"● LYLA 2099 EN LÍNEA — Modelo activo: {prov} ({mod})\n"
-            "Escribe un mensaje abajo, usa el botón 🎤 Hablar, o ejecuta cualquier comando (/comands, /model, /status, /calendar, /alarm, /sys)."
+            f"󰯊  LYLA 2099 EN LÍNEA — Modelo activo: {prov} ({mod})\n"
+            "Escribe un mensaje abajo, usa el botón  Hablar, o ejecuta cualquier comando (/comands, /model, /status, /calendar, /alarm, /sys)."
         )
 
         self.update_stats()
@@ -333,8 +333,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
     def _refresh_model_badge(self):
         prov, mod = self.agent.router.get_active_model()
-        v_icon = "🔊" if self.voice_enabled else "🔇"
-        self.lbl_model.set_text(f"🤖 LLM: {prov.upper()} ({mod}) {v_icon}")
+        v_icon = "" if self.voice_enabled else ""
+        self.lbl_model.set_text(f"󰯊  LLM: {prov.upper()} ({mod}) {v_icon}")
 
     def append_console(self, text: str):
         end_iter = self.text_buffer.get_end_iter()
@@ -382,7 +382,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
     def on_stop_voice(self, *_):
         self.agent.tts.player.stop()
-        self.lbl_sub.set_text("🔇 VOZ SILENCIADA • LISTO PARA ESCRIBIR")
+        self.lbl_sub.set_text("  VOZ SILENCIADA • LISTO PARA ESCRIBIR")
 
     def on_show_status(self, *_):
         status_txt = self.agent.format_models_status_text()
@@ -404,7 +404,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             return
 
         self.append_console(f"Víctor > {user_text}")
-        self.lbl_sub.set_text("⏳ PROCESANDO EN LA NUBE 2099...")
+        self.lbl_sub.set_text("  PROCESANDO EN LA NUBE 2099...")
 
         def _worker():
             try:
@@ -424,11 +424,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                 GLib.idle_add(_update_ui)
 
                 if should_speak and raw_reply:
-                    GLib.idle_add(lambda: self.lbl_sub.set_text("🔊 LYLA HABLANDO... (Clic en '🔇 Callar' o [Esc] para detener)") or False)
+                    GLib.idle_add(lambda: self.lbl_sub.set_text("  LYLA HABLANDO... (Clic en ' Callar' o [Esc] para detener)") or False)
                     self.agent.speak_reply(raw_reply)
                     GLib.idle_add(lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False)
             except Exception as e:
-                GLib.idle_add(lambda: self.append_console(f"⚠️ [Error]: {e}") or False)
+                GLib.idle_add(lambda: self.append_console(f"  [Error]: {e}") or False)
                 GLib.idle_add(lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False)
 
         threading.Thread(target=_worker, daemon=True).start()
@@ -438,19 +438,19 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             # Iniciar grabación con PipeWire
             self.agent.tts.player.stop()
             self.is_recording = True
-            self.b_mic.set_label("⏹ Enviar")
+            self.b_mic.set_label("󰒊  Enviar")
             self.b_mic.remove_css_class("lyla-btn-mic")
             self.b_mic.add_css_class("lyla-btn-mic-active")
-            self.lbl_sub.set_text("🎤 GRABANDO VOZ... HAZ CLIC EN '⏹ Enviar' AL TERMINAR")
+            self.lbl_sub.set_text("  GRABANDO VOZ... HAZ CLIC EN '󰒊 Enviar' AL TERMINAR")
             self.rec_file = self.agent.capture.start_recording()
         else:
             # Detener grabación y transcribir en segundo plano
             self.is_recording = False
-            self.b_mic.set_label("🎤 Hablar")
+            self.b_mic.set_label("  Hablar")
             self.b_mic.remove_css_class("lyla-btn-mic-active")
             self.b_mic.add_css_class("lyla-btn-mic")
             self.agent.capture.stop_recording()
-            self.lbl_sub.set_text("⏳ TRANSCRIBIENDO AUDIO EN LA NUBE...")
+            self.lbl_sub.set_text("  TRANSCRIBIENDO AUDIO EN LA NUBE...")
 
             rec_path = self.rec_file
 
@@ -459,7 +459,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                     transcription = self.agent.stt.transcribe(rec_path) if rec_path else ""
                     if not transcription:
                         GLib.idle_add(
-                            lambda: self.append_console("⚠️ No se detectó voz clara en la grabación.") or False
+                            lambda: self.append_console("  No se detectó voz clara en la grabación.") or False
                         )
                         GLib.idle_add(
                             lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
@@ -467,7 +467,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                         return
                     GLib.idle_add(lambda: self.process_user_input(transcription) or False)
                 except Exception as e:
-                    GLib.idle_add(lambda: self.append_console(f"⚠️ Error STT: {e}") or False)
+                    GLib.idle_add(lambda: self.append_console(f"  Error STT: {e}") or False)
 
             threading.Thread(target=_stt_worker, daemon=True).start()
 
