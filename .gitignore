@@ -2,19 +2,24 @@
 .venv/
 env/
 venv/
+ENV/
 
-# Python cache
+# Python cache y compilados
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.pytest_cache/
 
-# Variables de entorno y credenciales
+# Variables de entorno y credenciales sensibles (NUNCA SUBIR A GITHUB)
 .env
 .env.*
 !.env.example
+*.key
+*.pem
 credentials.json
 token.json
+client_secret*.json
 
 # Audio temporal y base de datos local
 temp_audio/
@@ -26,3 +31,12 @@ temp_audio/
 
 # Logs
 *.log
+
+# Editores y Sistemas Operativos
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
