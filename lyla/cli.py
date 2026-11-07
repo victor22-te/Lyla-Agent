@@ -28,6 +28,8 @@ CLI_COMMANDS = [
     "/comands",
     "/commands",
     "/comandos",
+    "/calendar",
+    "/agenda",
     "/voice",
     "/listen",
     "/memory",
@@ -42,6 +44,8 @@ BARE_COMMANDS = [
     "comands",
     "commands",
     "comandos",
+    "calendar",
+    "agenda",
     "model",
     "modelo",
     "exit",
@@ -121,6 +125,7 @@ def print_commands_list():
         f"\n{CYAN}{BOLD}📋 Comandos Disponibles en LYLA (SKILLS.md):{RESET}\n"
         f"  {BOLD}/comands{RESET}                  : Muestra esta lista de comandos disponibles\n"
         f"  {BOLD}/model{RESET} | {BOLD}/modelo{RESET} [opción] : Cambia al siguiente modelo disponible o selecciona uno específico\n"
+        f"  {BOLD}/calendar{RESET} | {BOLD}/agenda{RESET}       : Muestra próximos eventos, agrega ('/calendar add Título | YYYY-MM-DD HH:MM') o vincula Google ('/calendar auth')\n"
         f"  {BOLD}/voice{RESET}                    : Activa o desactiva la síntesis de voz (Edge-TTS)\n"
         f"  {BOLD}/listen{RESET}                   : Graba tu voz con micrófono y la transcribe en la nube\n"
         f"  {BOLD}/memory{RESET}                   : Muestra los recuerdos guardados en Memoria Episódica (SQLite)\n"
@@ -193,6 +198,41 @@ def main():
                 print_commands_list()
                 continue
 
+            elif cmd in ["/calendar", "/agenda", "calendar", "agenda"]:
+                if not cmd_arg:
+                    events = agent.calendar.list_upcoming_events(limit=10)
+                    print(f"\n{CYAN}{BOLD}📅 Próximos Eventos ({agent.calendar.get_status_label()}):{RESET}")
+                    if not events:
+                        print("  (No hay eventos próximos. Usa '/calendar add Reunión | 2026-11-08 16:00' o díselo a LYLA en el chat)")
+                    else:
+                        for ev in events:
+                            print(f"  - [{YELLOW}{ev['start_time']}{RESET}] {BOLD}{ev['title']}{RESET} (ID: {ev['id']}, {ev['source']})")
+                    print(
+                        f"  {CYAN}Comandos:{RESET} {BOLD}/calendar add <título> | <YYYY-MM-DD HH:MM>{RESET} • "
+                        f"{BOLD}/calendar del <id>{RESET} • {BOLD}/calendar auth{RESET}\n"
+                    )
+                elif cmd_arg.lower() == "auth":
+                    ok, msg = agent.calendar.authenticate_oauth()
+                    color = GREEN if ok else YELLOW
+                    print(f"\n{color}{msg}{RESET}\n")
+                elif cmd_arg.lower().startswith("add "):
+                    raw_ev = cmd_arg[4:].strip()
+                    if "|" in raw_ev:
+                        title_part, time_part = raw_ev.split("|", 1)
+                    else:
+                        title_part, time_part = raw_ev, "Hoy"
+                    ev = agent.calendar.add_event(title_part.strip(), time_part.strip())
+                    print(f"\n{GREEN}📅 Evento agendado:{RESET} '{BOLD}{ev['title']}{RESET}' → {YELLOW}{ev['start_time']}{RESET} ({ev['source']})\n")
+                elif cmd_arg.lower().startswith(("del ", "delete ", "rm ")):
+                    ev_id = cmd_arg.split(maxsplit=1)[1].strip()
+                    if agent.calendar.delete_event(ev_id):
+                        print(f"\n{GREEN}🗑️  Evento #{ev_id} eliminado.{RESET}\n")
+                    else:
+                        print(f"\n{YELLOW}⚠️  No se encontró el evento local #{ev_id}.{RESET}\n")
+                else:
+                    print(f"\n{YELLOW}Uso: /calendar | /calendar add <título> | <fecha_hora> | /calendar del <id> | /calendar auth{RESET}\n")
+                continue
+
             elif cmd in ["/model", "/modelo", "model", "modelo"]:
                 try:
                     new_provider, new_model = agent.router.switch_model(cmd_arg)
@@ -249,7 +289,8 @@ def main():
 
             # Procesamiento de mensaje normal (imprime texto primero y luego reproduce voz)
             reply = agent.process_message(user_input, voice_reply=False)
-            print(f"\n{MAGENTA}LYLA > {RESET}{reply}\n")
+            cur_prov, cur_mod = agent.router.get_active_model()
+            print(f"\n{MAGENTA}LYLA [{cur_prov}:{cur_mod}] > {RESET}{reply}\n")
             if voice_enabled:
                 agent.speak_reply(reply)
 
