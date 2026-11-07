@@ -12,7 +12,7 @@ RESET = "\033[0m"
 
 BANNER = f"""
 {CYAN}{BOLD}╔═══════════════════════════════════════════════════════════════╗
-║   LYLA // Lightweight Yielding Lifeform Assembly (2099)      ║
+║   LYLA // Lightweight Yielding Lifeform Assembly (2099)       ║
 ║   Agente Autónomo Cloud-First • Zero Impact • Memoria Híbrida ║
 ╚═══════════════════════════════════════════════════════════════╝{RESET}
 """
