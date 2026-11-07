@@ -34,8 +34,18 @@ class Config:
         # LLM config
         llm_cfg = self.raw.get("llm", {})
         self.default_provider = llm_cfg.get("default_provider", "gemini")
-        self.gemini_model = llm_cfg.get("gemini", {}).get("model", "gemini-2.5-flash")
-        self.groq_model = llm_cfg.get("groq", {}).get("model", "llama-3.3-70b-versatile")
+        gemini_cfg = llm_cfg.get("gemini", {})
+        groq_cfg = llm_cfg.get("groq", {})
+        self.gemini_model = gemini_cfg.get("model", "gemini-3.5-flash")
+        self.groq_model = groq_cfg.get("model", "openai/gpt-oss-120b")
+        self.gemini_available_models = gemini_cfg.get(
+            "available_models",
+            ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]
+        )
+        self.groq_available_models = groq_cfg.get(
+            "available_models",
+            ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
+        )
         
         # Audio config
         audio_cfg = self.raw.get("audio", {})

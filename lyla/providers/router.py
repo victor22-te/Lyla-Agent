@@ -20,7 +20,14 @@ class LLMRouter:
         if self.config.gemini_api_key:
             try:
                 from google import genai
-                self.gemini_client = genai.Client(api_key=self.config.gemini_api_key)
+                from google.genai import types
+                self.gemini_client = genai.Client(
+                    api_key=self.config.gemini_api_key,
+                    http_options=types.HttpOptions(
+                        timeout=12000,
+                        retry_options=types.HttpRetryOptions(attempts=1)
+                    )
+                )
             except Exception as e:
                 print(f"[Aviso] No se pudo inicializar cliente Gemini: {e}")
 
@@ -30,6 +37,86 @@ class LLMRouter:
                 self.groq_client = Groq(api_key=self.config.groq_api_key)
             except Exception as e:
                 print(f"[Aviso] No se pudo inicializar cliente Groq: {e}")
+
+    def get_available_models(self) -> List[Dict[str, str]]:
+        """Devuelve la lista de modelos disponibles según los proveedores activos."""
+        gemini_models = list(self.config.gemini_available_models)
+        if self.config.gemini_model not in gemini_models:
+            gemini_models.insert(0, self.config.gemini_model)
+
+        groq_models = list(self.config.groq_available_models)
+        if self.config.groq_model not in groq_models:
+            groq_models.insert(0, self.config.groq_model)
+
+        has_gemini = self.gemini_client is not None or not self.groq_client
+        has_groq = self.groq_client is not None or not self.gemini_client
+
+        options: List[Dict[str, str]] = []
+        # Intercalar los modelos principales primero para que /model alterne rápido entre Gemini y Groq
+        max_len = max(len(gemini_models), len(groq_models))
+        for i in range(max_len):
+            if has_gemini and i < len(gemini_models):
+                options.append({"provider": "gemini", "model": gemini_models[i]})
+            if has_groq and i < len(groq_models):
+                options.append({"provider": "groq", "model": groq_models[i]})
+        return options
+
+    def get_active_model(self) -> Tuple[str, str]:
+        """Devuelve (proveedor_activo, modelo_activo)."""
+        provider = self.config.default_provider
+        model = self.config.gemini_model if provider == "gemini" else self.config.groq_model
+        return provider, model
+
+    def switch_model(self, target: Optional[str] = None) -> Tuple[str, str]:
+        """
+        Cambia entre los modelos/proveedores disponibles.
+        Si no se pasa `target`, cicla al siguiente modelo disponible.
+        Si se pasa `target` (índice, proveedor o nombre de modelo), selecciona ese.
+        """
+        options = self.get_available_models()
+        if not options:
+            return self.get_active_model()
+
+        curr_provider, curr_model = self.get_active_model()
+
+        if not target:
+            curr_idx = next(
+                (i for i, opt in enumerate(options) if opt["provider"] == curr_provider and opt["model"] == curr_model),
+                -1
+            )
+            chosen = options[(curr_idx + 1) % len(options)]
+        else:
+            t = target.strip().lower()
+            chosen = None
+            # 1. Por número de índice (1..N)
+            if t.isdigit():
+                idx = int(t) - 1
+                if 0 <= idx < len(options):
+                    chosen = options[idx]
+            # 2. Por nombre de proveedor ("gemini" o "groq")
+            if chosen is None and t in ("gemini", "groq"):
+                if t == "gemini" and (self.gemini_client is not None or not self.groq_client):
+                    chosen = {"provider": "gemini", "model": self.config.gemini_model}
+                elif t == "groq" and (self.groq_client is not None or not self.gemini_client):
+                    chosen = {"provider": "groq", "model": self.config.groq_model}
+            # 3. Por coincidencia exacta o parcial de modelo
+            if chosen is None:
+                for opt in options:
+                    full_key = f"{opt['provider']}:{opt['model']}".lower()
+                    if t == opt["model"].lower() or t == full_key or t in opt["model"].lower():
+                        chosen = opt
+                        break
+
+            if chosen is None:
+                raise ValueError(f"Modelo o proveedor '{target}' no reconocido.")
+
+        self.config.default_provider = chosen["provider"]
+        if chosen["provider"] == "gemini":
+            self.config.gemini_model = chosen["model"]
+        else:
+            self.config.groq_model = chosen["model"]
+
+        return self.get_active_model()
 
     def generate(self, system_prompt: str, history: List[Dict[str, str]], user_message: str, preferred_provider: Optional[str] = None) -> Tuple[str, str]:
         provider = preferred_provider or self.config.default_provider

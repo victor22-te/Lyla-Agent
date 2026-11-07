@@ -59,11 +59,15 @@ class LylaAgent:
 
         # Reproducir voz si está habilitado
         if voice_reply and self.config.audio_enabled:
-            # Limpiar emojis o Markdown pesado antes del TTS para que suene fluido
-            clean_speech = re.sub(r'[*_#`💡]', '', reply_text)
-            self.tts.speak(clean_speech, play_audio=True)
+            self.speak_reply(reply_text)
 
         return reply_text
+
+    def speak_reply(self, reply_text: str):
+        """Limpia Markdown/emojis y reproduce la respuesta por voz si el audio está habilitado."""
+        if self.config.audio_enabled:
+            clean_speech = re.sub(r'[*_#`💡]', '', reply_text)
+            self.tts.speak(clean_speech, play_audio=True)
 
     def _auto_detect_memory(self, user_text: str, reply_text: str):
         """
