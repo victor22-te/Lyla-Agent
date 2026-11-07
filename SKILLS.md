@@ -15,10 +15,14 @@ Todos los comandos cuentan con **autocompletado mediante la tecla `Tab`** en la 
 | `/comands` | `/commands`, `/comandos`, `/help`, `comands` | Muestra la lista de todos los comandos disponibles en el CLI. |
 | `/model [opción]` | `/modelo`, `model`, `modelo` | Sin argumentos, rota al siguiente proveedor/modelo disponible (Gemini ↔ Groq). Con argumento (`/model groq`, `/model gemini`, `/model 2`, `/model openai/gpt-oss-120b`), selecciona ese modelo directamente. Soporta autocompletado de modelos con `Tab`. |
 | `/calendar [acción]` | `/agenda`, `calendar`, `agenda` | Muestra tu agenda próxima. Soporta `/calendar add <título> \| <YYYY-MM-DD HH:MM>`, `/calendar del <id>` y `/calendar auth` (vincular Google Calendar OAuth2). También puedes pedirle a LYLA en lenguaje natural que agende o consulte eventos. |
+| `/status` | `/stats`, `status`, `stats` | Muestra el estado de todos los modelos configurados a nivel de tokens consumidos hoy, límite diario, **porcentaje (%) usado / libre**, llamadas y latencia. |
+| `/alarm [tiempo] [msg]` | `/alarma`, `alarm`, `alarma` | Lista alarmas activas o programa una alarma con notificación de escritorio + voz (ej. `/alarm 5m Revisar deploy` o `/alarm 18:30 Llamada`). |
+| `/sys` | `/system`, `sys`, `system` | Muestra la telemetría en tiempo real de Arch Linux (CPU, RAM, Disco, Batería, Uptime). |
+| `/mobile [mensaje]` | `mobile` | Envía un ping o alerta a tu teléfono móvil vinculado mediante KDE Connect. |
+| `/hud` | `hud` | Abre el Widget Holográfico de Escritorio (GTK4 + Cairo) con chat, micrófono y botón de Status de Modelos. |
 | `/voice` | — | Activa o desactiva la síntesis de voz en la nube (Edge-TTS) para las respuestas de LYLA. |
 | `/listen` | — | Inicia la grabación de voz por micrófono con PipeWire (`pw-record`), la transcribe en la nube (Groq Whisper / Gemini) y envía el mensaje a LYLA. |
 | `/memory` | — | Consulta y muestra los últimos recuerdos almacenados en la Memoria Episódica (SQLite). |
-| `/stats` | — | Muestra las estadísticas de la sesión actual: tokens de entrada/salida, total de tokens, llamadas por proveedor cloud y tiempo en línea. |
 | `/exit` | `exit`, `salir`, `quit` | Cierra la sesión interactiva de LYLA de forma segura. |
 
 ### Atajos de Teclado (Control de Voz en Vivo)

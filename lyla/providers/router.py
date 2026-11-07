@@ -175,7 +175,7 @@ class LLMRouter:
         tokens_in = response.usage_metadata.prompt_token_count if response.usage_metadata else len(user_message) // 4
         tokens_out = response.usage_metadata.candidates_token_count if response.usage_metadata else len(response.text or "") // 4
         
-        self.tracker.record_call("gemini", tokens_in, tokens_out, latency)
+        self.tracker.record_call("gemini", tokens_in, tokens_out, latency, model=self.config.gemini_model)
         return response.text or ""
 
     def _call_groq(self, system_prompt: str, history: List[Dict[str, str]], user_message: str) -> str:
@@ -197,5 +197,5 @@ class LLMRouter:
         tokens_in = usage.prompt_tokens if usage else len(user_message) // 4
         tokens_out = usage.completion_tokens if usage else len(content) // 4
 
-        self.tracker.record_call("groq", tokens_in, tokens_out, latency)
+        self.tracker.record_call("groq", tokens_in, tokens_out, latency, model=self.config.groq_model)
         return content

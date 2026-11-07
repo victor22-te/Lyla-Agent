@@ -68,7 +68,7 @@ class AudioPlayer:
                 tty.setcbreak(fd)
 
             sys.stdout.write(
-                "\r\033[93m🔊 LYLA hablando... (Presiona [Espacio], [Enter], [q], [Esc] o [Ctrl+C] para silenciar)\033[0m"
+                "\r\033[93m  LYLA hablando... (Presiona [Espacio], [Enter], [q], [Esc] o [Ctrl+C] para silenciar)\033[0m"
             )
             sys.stdout.flush()
 
@@ -100,4 +100,4 @@ class AudioPlayer:
             sys.stdout.write("\r\033[K")
             sys.stdout.flush()
             if interrupted:
-                print("\033[93m🔇 [Voz silenciada]\033[0m\n")
+                print("\033[93m  [Voz silenciada]\033[0m\n")

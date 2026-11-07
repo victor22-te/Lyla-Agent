@@ -27,7 +27,7 @@ class CloudTTS:
             return output_file
         except KeyboardInterrupt:
             self.player.stop()
-            print("\r\033[K\033[93m🔇 [Voz silenciada]\033[0m\n")
+            print("\r\033[K\033[93m  [Voz silenciada]\033[0m\n")
             return None
         except Exception as e:
             print(f"[CloudTTS] Error generando voz: {e}")

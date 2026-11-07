@@ -125,7 +125,7 @@ class CalendarManager:
 
             server = HTTPServer(("localhost", port), OAuthCallbackHandler)
             server.timeout = 120
-            print(f"\n🌐 Abriendo navegador para autorizar Google Calendar...\n   Si no se abre automáticamente, entra a:\n   {auth_url}\n")
+            print(f"\n󰯊  Abriendo navegador para autorizar Google Calendar...\n   Si no se abre automáticamente, entra a:\n   {auth_url}\n")
             webbrowser.open(auth_url)
             server.handle_request()
             server.server_close()

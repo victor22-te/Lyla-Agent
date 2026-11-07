@@ -30,12 +30,19 @@ CLI_COMMANDS = [
     "/comandos",
     "/calendar",
     "/agenda",
+    "/alarm",
+    "/alarma",
+    "/sys",
+    "/system",
+    "/mobile",
+    "/hud",
+    "/status",
+    "/stats",
     "/voice",
     "/listen",
     "/memory",
     "/model",
     "/modelo",
-    "/stats",
     "/help",
     "/exit",
 ]
@@ -46,6 +53,13 @@ BARE_COMMANDS = [
     "comandos",
     "calendar",
     "agenda",
+    "alarm",
+    "alarma",
+    "sys",
+    "system",
+    "mobile",
+    "status",
+    "stats",
     "model",
     "modelo",
     "exit",
@@ -102,7 +116,7 @@ def print_models_status(agent: LylaAgent):
     """Muestra la lista de modelos disponibles marcando el activo."""
     active_provider, active_model = agent.router.get_active_model()
     options = agent.router.get_available_models()
-    print(f"\n{CYAN}{BOLD}🤖 Modelos / Proveedores Disponibles:{RESET}")
+    print(f"\n{CYAN}{BOLD}󰯊  Modelos / Proveedores Disponibles:{RESET}")
     for idx, opt in enumerate(options, start=1):
         is_active = (opt["provider"] == active_provider and opt["model"] == active_model)
         marker = f"{GREEN}●{RESET}" if is_active else " "
@@ -122,23 +136,27 @@ def load_ascii_art() -> str:
 def print_commands_list():
     """Muestra todos los comandos disponibles registrados en SKILLS.md."""
     print(
-        f"\n{CYAN}{BOLD}📋 Comandos Disponibles en LYLA (SKILLS.md):{RESET}\n"
+        f"\n{CYAN}{BOLD}  Comandos Disponibles en LYLA (SKILLS.md):{RESET}\n"
         f"  {BOLD}/comands{RESET}                  : Muestra esta lista de comandos disponibles\n"
         f"  {BOLD}/model{RESET} | {BOLD}/modelo{RESET} [opción] : Cambia al siguiente modelo disponible o selecciona uno específico\n"
+        f"  {BOLD}/status{RESET} | {BOLD}/stats{RESET}          : Muestra estado de modelos, tokens consumidos y % de cuota disponible\n"
         f"  {BOLD}/calendar{RESET} | {BOLD}/agenda{RESET}       : Muestra próximos eventos, agrega ('/calendar add Título | YYYY-MM-DD HH:MM') o vincula Google ('/calendar auth')\n"
+        f"  {BOLD}/alarm{RESET} | {BOLD}/alarma{RESET} <t> <msg>: Programa una alarma con notificación + voz (ej. '/alarm 5m Revisar deploy' o '/alarm 18:30 Junta')\n"
+        f"  {BOLD}/sys{RESET} | {BOLD}/system{RESET}            : Muestra telemetría del sistema Arch Linux (CPU, RAM, Disco, Batería, Uptime)\n"
+        f"  {BOLD}/mobile{RESET} [mensaje]         : Envía un ping/alerta a tu teléfono vía KDE Connect\n"
+        f"  {BOLD}/hud{RESET}                      : Abre el Widget Holográfico GTK4 de LYLA en el escritorio\n"
         f"  {BOLD}/voice{RESET}                    : Activa o desactiva la síntesis de voz (Edge-TTS)\n"
         f"  {BOLD}/listen{RESET}                   : Graba tu voz con micrófono y la transcribe en la nube\n"
         f"  {BOLD}/memory{RESET}                   : Muestra los recuerdos guardados en Memoria Episódica (SQLite)\n"
-        f"  {BOLD}/stats{RESET}                    : Muestra consumo de tokens y llamadas a cada proveedor cloud\n"
         f"  {BOLD}/exit{RESET}                     : Cierra la sesión de LYLA\n"
-        f"\n{CYAN}{BOLD}⌨️  Atajos durante la voz de LYLA:{RESET}\n"
+        f"\n{CYAN}{BOLD}  Atajos durante la voz de LYLA:{RESET}\n"
         f"  {BOLD}[Espacio]{RESET}, {BOLD}[Enter]{RESET}, {BOLD}[q]{RESET}, {BOLD}[Esc]{RESET} o {BOLD}[Ctrl+C]{RESET} : Silencia la voz al instante y devuelve el prompt sin salir del CLI\n"
     )
 
 
 BANNER = f"""
 {CYAN}{BOLD}╔═══════════════════════════════════════════════════════════════╗
-║   LYLA // Lightweight Yielding Lifeform Assembly (2099)       ║
+║   󱇪  LYLA // Lightweight Yielding Lifeform Assembly (2099)    ║
 ║   Agente Autónomo Cloud-First • Zero Impact • Memoria Híbrida ║
 ╚═══════════════════════════════════════════════════════════════╝{RESET}
 """
@@ -158,7 +176,7 @@ def main():
         print(ascii_art)
     print(BANNER)
     print(
-        f"{GREEN}● Sistema en línea.{RESET} Proveedor por defecto: "
+        f"{GREEN}󰯊  Sistema en línea.{RESET} Proveedor por defecto: "
         f"{YELLOW}{active_provider}{RESET} ({BOLD}{active_model}{RESET})"
     )
     print(
@@ -174,7 +192,7 @@ def main():
 
     # Verificar si hay claves de API configuradas
     if not agent.config.gemini_api_key and not agent.config.groq_api_key:
-        print(f"{YELLOW}⚠️  Aviso: No se han detectado GEMINI_API_KEY o GROQ_API_KEY en el entorno o archivo .env.{RESET}")
+        print(f"{YELLOW}  Aviso: No se han detectado GEMINI_API_KEY o GROQ_API_KEY en el entorno o archivo .env.{RESET}")
         print(f"   Puedes copiar {BOLD}.env.example{RESET} a {BOLD}.env{RESET} y añadir tus claves para interactuar con la nube.\n")
 
     while True:
@@ -201,7 +219,7 @@ def main():
             elif cmd in ["/calendar", "/agenda", "calendar", "agenda"]:
                 if not cmd_arg:
                     events = agent.calendar.list_upcoming_events(limit=10)
-                    print(f"\n{CYAN}{BOLD}📅 Próximos Eventos ({agent.calendar.get_status_label()}):{RESET}")
+                    print(f"\n{CYAN}{BOLD}  Próximos Eventos ({agent.calendar.get_status_label()}):{RESET}")
                     if not events:
                         print("  (No hay eventos próximos. Usa '/calendar add Reunión | 2026-11-08 16:00' o díselo a LYLA en el chat)")
                     else:
@@ -222,13 +240,13 @@ def main():
                     else:
                         title_part, time_part = raw_ev, "Hoy"
                     ev = agent.calendar.add_event(title_part.strip(), time_part.strip())
-                    print(f"\n{GREEN}📅 Evento agendado:{RESET} '{BOLD}{ev['title']}{RESET}' → {YELLOW}{ev['start_time']}{RESET} ({ev['source']})\n")
+                    print(f"\n{GREEN}  Evento agendado:{RESET} '{BOLD}{ev['title']}{RESET}' → {YELLOW}{ev['start_time']}{RESET} ({ev['source']})\n")
                 elif cmd_arg.lower().startswith(("del ", "delete ", "rm ")):
                     ev_id = cmd_arg.split(maxsplit=1)[1].strip()
                     if agent.calendar.delete_event(ev_id):
-                        print(f"\n{GREEN}🗑️  Evento #{ev_id} eliminado.{RESET}\n")
+                        print(f"\n{GREEN}  Evento #{ev_id} eliminado.{RESET}\n")
                     else:
-                        print(f"\n{YELLOW}⚠️  No se encontró el evento local #{ev_id}.{RESET}\n")
+                        print(f"\n{YELLOW}  No se encontró el evento local #{ev_id}.{RESET}\n")
                 else:
                     print(f"\n{YELLOW}Uso: /calendar | /calendar add <título> | <fecha_hora> | /calendar del <id> | /calendar auth{RESET}\n")
                 continue
@@ -237,34 +255,88 @@ def main():
                 try:
                     new_provider, new_model = agent.router.switch_model(cmd_arg)
                     print(
-                        f"\n🔄 Modelo cambiado a: {YELLOW}{new_provider}{RESET} "
+                        f"\n  Modelo cambiado a: {YELLOW}{new_provider}{RESET} "
                         f"({BOLD}{new_model}{RESET})"
                     )
                     print_models_status(agent)
                 except ValueError as err:
-                    print(f"\n{YELLOW}⚠️  {err}{RESET}")
+                    print(f"\n{YELLOW}  {err}{RESET}")
                     print_models_status(agent)
                 continue
 
             elif cmd == "/voice":
                 voice_enabled = not voice_enabled
-                status = f"{GREEN}ACTIVADA{RESET}" if voice_enabled else f"{YELLOW}DESACTIVADA{RESET}"
-                print(f"🔊 Voz de LYLA: {status}\n")
+                status = f"{GREEN}  ACTIVADA{RESET}" if voice_enabled else f"{YELLOW}  DESACTIVADA{RESET}"
+                print(f"Voz de LYLA: {status}\n")
                 continue
 
-            elif cmd == "/stats":
+            elif cmd in ["/stats", "/status", "stats", "status"]:
                 stats = agent.tracker.get_summary()
-                print(f"\n{YELLOW}📊 Estadísticas de Recursos Cloud:{RESET}")
-                print(f"  - Tokens entrada : {stats['total_tokens_in']}")
-                print(f"  - Tokens salida  : {stats['total_tokens_out']}")
-                print(f"  - Total tokens   : {stats['total_tokens']}")
-                print(f"  - Llamadas APIs  : {stats['calls_by_provider']}")
-                print(f"  - Tiempo sesión  : {stats['uptime_seconds']}s\n")
+                report = agent.get_models_status_report()
+                print(f"\n{YELLOW}{BOLD}󰐷  Estado de Modelos Cloud (Tokens Hoy y Porcentaje de Cuota):{RESET}")
+                for item in report:
+                    mark = f"{GREEN}●{RESET}" if item["active"] else " "
+                    print(
+                        f"  {mark} {YELLOW}{item['provider']:<6}{RESET} │ {BOLD}{item['model']:<22}{RESET} │ "
+                        f"Tokens: {item['tokens_total']:>7}/{item['daily_limit']:<7} "
+                        f"({CYAN}{item['used_pct']:5.2f}% usado{RESET} • {GREEN}{item['remaining_pct']:6.2f}% libre{RESET}) │ "
+                        f"Calls: {item['calls']} │ Lat: {item['last_latency']:.2f}s"
+                    )
+                print(
+                    f"\n  {CYAN}  Sesión actual:{RESET} {stats['total_tokens_in']} in / {stats['total_tokens_out']} out "
+                    f"({stats['total_tokens']} total) • Uptime: {stats['uptime_seconds']}s\n"
+                )
+                continue
+
+            elif cmd in ["/alarm", "/alarma", "alarm", "alarma"]:
+                if not cmd_arg:
+                    active_alarms = agent.system.list_active_alarms()
+                    print(f"\n{CYAN}{BOLD}  Alarmas Activas:{RESET}")
+                    if not active_alarms:
+                        print("  (Sin alarmas activas. Usa '/alarm 5m Revisar servidor' o '/alarm 18:30 Junta')")
+                    else:
+                        for al in active_alarms:
+                            print(f"  - [#{al['id']}] {YELLOW}{al['target_time']}{RESET} → {BOLD}{al['message']}{RESET}")
+                    print()
+                else:
+                    parts_al = cmd_arg.split(maxsplit=1)
+                    t_spec = parts_al[0]
+                    msg_al = parts_al[1] if len(parts_al) > 1 else "Alarma LYLA 2099"
+                    try:
+                        al = agent.system.add_alarm(t_spec, msg_al)
+                        print(f"\n{GREEN}  Alarma #{al['id']} programada para las {BOLD}{al['target_time']}{RESET}: '{al['message']}'\n")
+                    except ValueError as err:
+                        print(f"\n{YELLOW}  {err}{RESET}\n")
+                continue
+
+            elif cmd in ["/sys", "/system", "sys", "system"]:
+                st = agent.system.get_system_status()
+                print(
+                    f"\n{CYAN}{BOLD}󰣇  Telemetría del Sistema Arch Linux (2099):{RESET}\n"
+                    f"  ║   CPU      : {st['cpu']}\n"
+                    f"  ║ 󰍛  Memoria  : {st['ram']}\n"
+                    f"  ║ 󰋊  Matriz   : {st['disk']}\n"
+                    f"  ║   Batería  : {st['battery']}\n"
+                    f"  ║   En línea : {st['uptime']}\n"
+                )
+                continue
+
+            elif cmd in ["/mobile", "mobile"]:
+                msg_mob = cmd_arg or "Ping desde LYLA 2099 HUD"
+                res_mob = agent.system.ping_mobile(msg_mob)
+                print(f"\n  {res_mob}\n")
+                continue
+
+            elif cmd in ["/hud", "hud"]:
+                import subprocess as _sp
+                hud_script = Path(__file__).resolve().parent / "hud.py"
+                _sp.Popen(["/usr/bin/python3", str(hud_script)], start_new_session=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+                print(f"\n{CYAN}󱇪  Widget Holográfico LYLA 2099 (GTK4) desplegado en tu escritorio.{RESET}\n")
                 continue
 
             elif cmd == "/memory":
                 memories = agent.memory.episodic.get_recent_memories(limit=10)
-                print(f"\n{MAGENTA}🧠 Recuerdos Registrados en Memoria Episódica (SQLite):{RESET}")
+                print(f"\n{MAGENTA}󰍛  Recuerdos Registrados en Memoria Episódica (SQLite):{RESET}")
                 if not memories:
                     print("  (Sin recuerdos almacenados aún. Dile: 'Recuerda que...')")
                 else:
@@ -275,14 +347,14 @@ def main():
                 continue
 
             elif cmd == "/listen":
-                print(f"\n{CYAN}🎤 Grabando con PipeWire... Presiona [Enter] para detener y enviar a la nube.{RESET}")
+                print(f"\n{CYAN}  Grabando con PipeWire... Presiona [Enter] para detener y enviar a la nube.{RESET}")
                 rec_file = agent.capture.start_recording()
                 input()
                 agent.capture.stop_recording()
-                print(f"⏳ Transcribiendo audio en la nube...")
+                print(f"  Transcribiendo audio en la nube...")
                 transcription = agent.stt.transcribe(rec_file)
                 if not transcription:
-                    print(f"{YELLOW}No se detectó audio claro o faltan claves de STT.{RESET}\n")
+                    print(f"{YELLOW}  No se detectó audio claro o faltan claves de STT.{RESET}\n")
                     continue
                 print(f"{CYAN}Víctor (Voz) > {transcription}{RESET}")
                 user_input = transcription
@@ -290,13 +362,13 @@ def main():
             # Procesamiento de mensaje normal (imprime texto primero y luego reproduce voz)
             reply = agent.process_message(user_input, voice_reply=False)
             cur_prov, cur_mod = agent.router.get_active_model()
-            print(f"\n{MAGENTA}LYLA [{cur_prov}:{cur_mod}] > {RESET}{reply}\n")
+            print(f"\n{MAGENTA}󱇪  LYLA [{cur_prov}:{cur_mod}] > {RESET}{reply}\n")
             if voice_enabled:
                 agent.speak_reply(reply)
 
         except KeyboardInterrupt:
             agent.tts.player.stop()
-            print(f"\n{YELLOW}🔇 [Interrumpido] Puedes seguir escribiendo. (Usa /exit para cerrar LYLA){RESET}\n")
+            print(f"\n{YELLOW}  [Interrumpido] Puedes seguir escribiendo. (Usa /exit para cerrar LYLA){RESET}\n")
             continue
         except EOFError:
             agent.tts.player.stop()
