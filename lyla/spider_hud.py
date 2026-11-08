@@ -77,69 +77,67 @@ def is_kitty_terminal() -> bool:
     return bool(os.environ.get("KITTY_WINDOW_ID") or "kitty" in os.environ.get("TERM", "").lower())
 
 
-def render_spider_txt_png(primary_rgb=(1.0, 0.165, 0.294), secondary_rgb=(0.0, 0.94, 1.0)) -> bytes:
+def render_spider_txt_png(out_path: Path, primary_rgb=(1.0, 0.12, 0.25), secondary_rgb=(0.0, 0.95, 1.0)) -> bool:
     """
-    Renderiza el archivo completo lyla/assets/spider.txt con un tamaño de fuente reducido (mini-font)
-    en un lienzo transparente de alta nitidez para incrustarlo en la esquina del HUD vía Kitty Graphics.
+    Renderiza el archivo completo lyla/assets/spider.txt con tamaño de fuente reducido (mini-font)
+    en una cuadrícula monoespaciada exacta y lo guarda en out_path para Kitty Graphics (t=f).
     """
     if cairo is None or not SPIDER_ASSET_FILE.exists():
-        return b""
+        return False
     raw_lines = SPIDER_ASSET_FILE.read_text(encoding="utf-8", errors="ignore").splitlines()
     if not raw_lines:
-        return b""
+        return False
 
-    img_w, img_h = 430, 395
+    img_w, img_h = 520, 490
     surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, img_w, img_h)
     cr = cairo.Context(surf)
 
-    # Fondo transparente
+    # Fondo 100% transparente
     cr.set_source_rgba(0, 0, 0, 0)
     cr.paint()
 
     cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-    cr.set_font_size(11.2)
+    cr.set_font_size(14.0)
 
     for idx, line in enumerate(raw_lines):
-        y = 13 + idx * 10.4
+        line_clean = line.replace("bug", "   ").rstrip()
+        y = 16 + idx * 13.0
         if idx % 3 != 0:
-            cr.set_source_rgba(primary_rgb[0], primary_rgb[1], primary_rgb[2], 0.98)
+            cr.set_source_rgba(primary_rgb[0], primary_rgb[1], primary_rgb[2], 1.0)
         else:
-            cr.set_source_rgba(secondary_rgb[0], secondary_rgb[1], secondary_rgb[2], 0.95)
-        cr.move_to(4, y)
-        cr.show_text(line)
+            cr.set_source_rgba(secondary_rgb[0], secondary_rgb[1], secondary_rgb[2], 1.0)
+        for col_i, ch in enumerate(line_clean):
+            if ch != " ":
+                cr.move_to(6 + col_i * 8.2, y)
+                cr.text_path(ch)
+        cr.set_line_width(0.55)
+        cr.stroke_preserve()
+        cr.fill()
 
-    buf = io.BytesIO()
-    surf.write_to_png(buf)
-    return buf.getvalue()
+    surf.write_to_png(str(out_path))
+    return out_path.exists()
 
 
-def kitty_upload_png(png_bytes: bytes, image_id: int):
-    if not png_bytes:
+def kitty_display_png_file(png_path: Path, image_id: int, row_1idx: int, col_1idx: int, cols: int, rows: int):
+    """Transmite y muestra el PNG en un solo comando atómico (a=T,t=f) directo al descriptor de la terminal."""
+    if not png_path.exists():
         return
-    b64 = base64.standard_b64encode(png_bytes).decode("ascii")
-    chunk_size = 4096
-    chunks = [b64[i : i + chunk_size] for i in range(0, len(b64), chunk_size)]
-    out = []
-    for idx, chunk in enumerate(chunks):
-        more = 1 if idx < len(chunks) - 1 else 0
-        if idx == 0:
-            out.append(f"\x1b_Ga=t,t=d,f=100,i={image_id},q=2,m={more};{chunk}\x1b\\")
-        else:
-            out.append(f"\x1b_Gm={more},q=2;{chunk}\x1b\\")
-    sys.stdout.write("".join(out))
-    sys.stdout.flush()
-
-
-def kitty_place_image(image_id: int, row_1idx: int, col_1idx: int, cols: int, rows: int):
-    sys.stdout.write(
-        f"\x1b[{row_1idx};{col_1idx}H\x1b_Ga=p,i={image_id},p=1,c={cols},r={rows},z=1,C=1,q=2\x1b\\"
+    b64_path = base64.standard_b64encode(str(png_path).encode("utf-8")).decode("ascii")
+    seq = (
+        f"\x1b[{row_1idx};{col_1idx}H"
+        f"\x1b_Ga=T,t=f,f=100,i={image_id},p=1,c={cols},r={rows},z=1,C=1,q=2;{b64_path}\x1b\\"
     )
-    sys.stdout.flush()
+    try:
+        os.write(1, seq.encode("ascii"))
+    except Exception:
+        pass
 
 
 def kitty_clear_images():
-    sys.stdout.write("\x1b_Ga=d,d=a,q=2\x1b\\")
-    sys.stdout.flush()
+    try:
+        os.write(1, b"\x1b_Ga=d,d=a,q=2\x1b\\")
+    except Exception:
+        pass
 
 HUD_COMMANDS = [
     "/comands",
@@ -294,15 +292,22 @@ def main(stdscr):
     apply_palette(mode_idx)
 
     # Si estamos en Kitty, renderizar spider.txt completo con fuente reducida (mini-font) para los 3 trajes
+    spider_png_files = [
+        Path("/tmp/lyla_spider_2099.png"),
+        Path("/tmp/lyla_spider_2100.png"),
+        Path("/tmp/lyla_spider_2101.png"),
+    ]
     use_kitty_gfx = is_kitty_terminal() and (cairo is not None) and SPIDER_ASSET_FILE.exists()
     if use_kitty_gfx:
         try:
-            kitty_upload_png(render_spider_txt_png((1.0, 0.165, 0.294), (0.0, 0.94, 1.0)), 2099)
-            kitty_upload_png(render_spider_txt_png((1.0, 0.165, 0.294), (0.90, 0.20, 1.0)), 2100)
-            kitty_upload_png(render_spider_txt_png((0.95, 0.97, 1.0), (0.0, 0.94, 1.0)), 2101)
+            ok0 = render_spider_txt_png(spider_png_files[0], (1.0, 0.12, 0.25), (0.0, 0.95, 1.0))
+            render_spider_txt_png(spider_png_files[1], (1.0, 0.12, 0.25), (0.90, 0.20, 1.0))
+            render_spider_txt_png(spider_png_files[2], (0.95, 0.97, 1.0), (0.0, 0.95, 1.0))
+            use_kitty_gfx = ok0
         except Exception:
             use_kitty_gfx = False
     last_kitty_state = None
+    last_hw = (0, 0)
 
     # Inicializar LYLA Engine
     agent = LylaAgent()
@@ -507,8 +512,29 @@ def main(stdscr):
             prev_time = now
             procs = read_top_procs(4)
 
-        stdscr.erase()
         h, w = stdscr.getmaxyx()
+        show_left_col = w >= 72
+        left_w = 32 if show_left_col else 0
+        spider_rows = 14 if h >= 26 else (8 if h >= 19 else 0)
+
+        # Evitar que ncurses emita \x1b[2J (que en Kitty borra las imágenes gráficas) en cada frame
+        if (h, w) != last_hw:
+            stdscr.erase()
+            last_hw = (h, w)
+            last_kitty_state = None
+        else:
+            blank_full = " " * max(1, w - 1)
+            for ry_clr in range(h):
+                try:
+                    if use_kitty_gfx and show_left_col and (2 <= ry_clr < 2 + spider_rows):
+                        # No sobrescribir el área de la imagen de Kitty en la esquina superior izquierda
+                        rx_start = left_w + 2
+                        if rx_start < w - 1:
+                            stdscr.addstr(ry_clr, rx_start, " " * (w - 1 - rx_start))
+                    else:
+                        stdscr.addstr(ry_clr, 0, blank_full)
+                except curses.error:
+                    pass
 
         active_prov, active_mod = agent.router.get_active_model()
         v_badge = " VOZ ON" if voice_enabled else " VOZ OFF"
@@ -532,11 +558,6 @@ def main(stdscr):
             pass
 
         total_cpu = cpu_pcts.get("cpu", 0.0)
-
-        # Left Column auto-ajustable según ancho (w) y alto (h)
-        show_left_col = w >= 72
-        left_w = 32 if show_left_col else 0
-        spider_rows = 14 if h >= 26 else (8 if h >= 19 else 0)
 
         if show_left_col:
             if not use_kitty_gfx and spider_rows > 0:
@@ -775,8 +796,15 @@ def main(stdscr):
         if use_kitty_gfx:
             cur_state = (show_left_col, spider_rows, mode_idx, h, w)
             if show_left_col and spider_rows > 0:
-                if cur_state != last_kitty_state or (tick % 15 == 1):
-                    kitty_place_image(2099 + mode_idx, row_1idx=3, col_1idx=3, cols=30, rows=spider_rows)
+                if cur_state != last_kitty_state or tick <= 3 or (tick % 12 == 0):
+                    kitty_display_png_file(
+                        spider_png_files[mode_idx],
+                        2099 + mode_idx,
+                        row_1idx=3,
+                        col_1idx=3,
+                        cols=30,
+                        rows=spider_rows,
+                    )
                     last_kitty_state = cur_state
             elif last_kitty_state is not None and last_kitty_state[0]:
                 kitty_clear_images()
