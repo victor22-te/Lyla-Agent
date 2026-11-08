@@ -11,7 +11,9 @@ Controls (Normal Mode):
   [p]                 : Pulso de Telaraña / Escaneo Multiversal
   [q]                 : Salir del HUD
 """
+import base64
 import curses
+import io
 import math
 import os
 import sys
@@ -20,44 +22,124 @@ import threading
 import time
 from pathlib import Path
 
-# Conectar con el motor de lyla-agent y su .venv
+# Conectar con el motor de lyla-agent, su .venv y librerías del sistema (cairo)
 LYLA_PROJECT_DIR = Path("/home/spider-man/Proyectos/lyla-agent")
 VENV_SITE_PACKAGES = LYLA_PROJECT_DIR / ".venv" / "lib" / "python3.14" / "site-packages"
+SYS_SITE_PACKAGES = Path("/usr/lib/python3.14/site-packages")
 if str(LYLA_PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(LYLA_PROJECT_DIR))
 if VENV_SITE_PACKAGES.exists() and str(VENV_SITE_PACKAGES) not in sys.path:
     sys.path.insert(0, str(VENV_SITE_PACKAGES))
+if SYS_SITE_PACKAGES.exists() and str(SYS_SITE_PACKAGES) not in sys.path:
+    sys.path.append(str(SYS_SITE_PACKAGES))
+
+try:
+    import cairo
+except ImportError:
+    cairo = None
 
 from lyla.core.agent import LylaAgent
 
 
+SPIDER_ASSET_FILE = LYLA_PROJECT_DIR / "lyla" / "assets" / "spider.txt"
+
+# Fallback ASCII proporcional de spider.txt para terminales sin protocolo gráfico de Kitty
 SPIDER_LOGO = [
-    r"      /\             /\      ",
-    r"     /  \   .---.   /  \     ",
-    r"    / /\ \ /     \ / /\ \    ",
-    r"   / /  \ | () () | /  \ \   ",
-    r"  /_/ /\ \ \  ^  / / /\ \_\  ",
-    r"     /  \ \_\___/_/ /  \     ",
-    r"  __/ /\ \ / _ _ \ / /\ \__  ",
-    r" /___/  \ V | | | V /  \___\ ",
-    r"    /  / |  |_|_|  | \  \    ",
-    r"   /__/ / \  | |  / \ \__\   ",
-    r"       /   \ / \ /   \       ",
-    r"       \   /  V  \   /       ",
-    r"        \ /       \ /        ",
-    r"         V         V         ",
+    r"    __          _.._..___     ",
+    r"   /  l     _.-'    '-. '-._  ",
+    r"  (`-: '--.'     _..J.  '-. '.",
+    r"   '''y  ,.' \ _.-'  `+'-. `.'",
+    r"    ; _.' .-j    `.    \  '-. ",
+    r"    :_:/  ::\    ;:  (  / .-' ",
+    r"     /  .- :  `. '. : .-' /.-'",
+    r"    : :     ,\''   ;.'  .-''  ",
+    r"   / '-:    /'-.b-.'  .'   ;  ",
+    r"  :`.  :   / :    `-i',_: _ \ ",
+    r"   \ \     '-._     `' :_/:_/ ",
+    r"    :_'-._      '-.  )   `.   ",
+    r"      ''^--'^-. :   \ `._ '-. ",
+    r"              / / : : :  `. '-",
 ]
 
 SPIDER_LOGO_COMPACT = [
-    r"    / /\ \ / .-. \ / /\ \    ",
-    r"   / /  \ | () () | /  \ \   ",
-    r"  /_/ /\ \ \  ^  / / /\ \_\  ",
-    r"  __/ /\ \ / _ _ \ / /\ \__  ",
-    r" /___/  \ V | | | V /  \___\ ",
-    r"   /__/ / \  |_|  / \ \__\   ",
-    r"       \   /  V  \   /       ",
-    r"        \ /       \ /        ",
+    r"   /  l     _.-'    '-. '-._  ",
+    r"  (`-: '--.'     _..J.  '-. '.",
+    r"    ; _.' .-j    `.    \  '-. ",
+    r"    :_:/  ::\    ;:  (  / .-' ",
+    r"   / '-:    /'-.b-.'  .'   ;  ",
+    r"   \ \     '-._     `' :_/:_/ ",
+    r"    :_'-._      '-.  )   `.   ",
+    r"              / / : : :  `. '-",
 ]
+
+
+def is_kitty_terminal() -> bool:
+    return bool(os.environ.get("KITTY_WINDOW_ID") or "kitty" in os.environ.get("TERM", "").lower())
+
+
+def render_spider_txt_png(primary_rgb=(1.0, 0.165, 0.294), secondary_rgb=(0.0, 0.94, 1.0)) -> bytes:
+    """
+    Renderiza el archivo completo lyla/assets/spider.txt con un tamaño de fuente reducido (mini-font)
+    en un lienzo transparente de alta nitidez para incrustarlo en la esquina del HUD vía Kitty Graphics.
+    """
+    if cairo is None or not SPIDER_ASSET_FILE.exists():
+        return b""
+    raw_lines = SPIDER_ASSET_FILE.read_text(encoding="utf-8", errors="ignore").splitlines()
+    if not raw_lines:
+        return b""
+
+    img_w, img_h = 430, 395
+    surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, img_w, img_h)
+    cr = cairo.Context(surf)
+
+    # Fondo transparente
+    cr.set_source_rgba(0, 0, 0, 0)
+    cr.paint()
+
+    cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+    cr.set_font_size(11.2)
+
+    for idx, line in enumerate(raw_lines):
+        y = 13 + idx * 10.4
+        if idx % 3 != 0:
+            cr.set_source_rgba(primary_rgb[0], primary_rgb[1], primary_rgb[2], 0.98)
+        else:
+            cr.set_source_rgba(secondary_rgb[0], secondary_rgb[1], secondary_rgb[2], 0.95)
+        cr.move_to(4, y)
+        cr.show_text(line)
+
+    buf = io.BytesIO()
+    surf.write_to_png(buf)
+    return buf.getvalue()
+
+
+def kitty_upload_png(png_bytes: bytes, image_id: int):
+    if not png_bytes:
+        return
+    b64 = base64.standard_b64encode(png_bytes).decode("ascii")
+    chunk_size = 4096
+    chunks = [b64[i : i + chunk_size] for i in range(0, len(b64), chunk_size)]
+    out = []
+    for idx, chunk in enumerate(chunks):
+        more = 1 if idx < len(chunks) - 1 else 0
+        if idx == 0:
+            out.append(f"\x1b_Ga=t,t=d,f=100,i={image_id},q=2,m={more};{chunk}\x1b\\")
+        else:
+            out.append(f"\x1b_Gm={more},q=2;{chunk}\x1b\\")
+    sys.stdout.write("".join(out))
+    sys.stdout.flush()
+
+
+def kitty_place_image(image_id: int, row_1idx: int, col_1idx: int, cols: int, rows: int):
+    sys.stdout.write(
+        f"\x1b[{row_1idx};{col_1idx}H\x1b_Ga=p,i={image_id},p=1,c={cols},r={rows},z=1,C=1,q=2\x1b\\"
+    )
+    sys.stdout.flush()
+
+
+def kitty_clear_images():
+    sys.stdout.write("\x1b_Ga=d,d=a,q=2\x1b\\")
+    sys.stdout.flush()
 
 HUD_COMMANDS = [
     "/comands",
@@ -210,6 +292,17 @@ def main(stdscr):
         curses.init_pair(6, curses.COLOR_WHITE, -1)
 
     apply_palette(mode_idx)
+
+    # Si estamos en Kitty, renderizar spider.txt completo con fuente reducida (mini-font) para los 3 trajes
+    use_kitty_gfx = is_kitty_terminal() and (cairo is not None) and SPIDER_ASSET_FILE.exists()
+    if use_kitty_gfx:
+        try:
+            kitty_upload_png(render_spider_txt_png((1.0, 0.165, 0.294), (0.0, 0.94, 1.0)), 2099)
+            kitty_upload_png(render_spider_txt_png((1.0, 0.165, 0.294), (0.90, 0.20, 1.0)), 2100)
+            kitty_upload_png(render_spider_txt_png((0.95, 0.97, 1.0), (0.0, 0.94, 1.0)), 2101)
+        except Exception:
+            use_kitty_gfx = False
+    last_kitty_state = None
 
     # Inicializar LYLA Engine
     agent = LylaAgent()
@@ -443,22 +536,24 @@ def main(stdscr):
         # Left Column auto-ajustable según ancho (w) y alto (h)
         show_left_col = w >= 72
         left_w = 32 if show_left_col else 0
+        spider_rows = 14 if h >= 26 else (8 if h >= 19 else 0)
 
         if show_left_col:
-            logo_to_use = SPIDER_LOGO if h >= 26 else (SPIDER_LOGO_COMPACT if h >= 19 else [])
-            for idx, line in enumerate(logo_to_use):
-                y = 2 + idx
-                if y >= h - 6:
-                    break
-                col = 1 if (idx + (tick // 3)) % 3 != 0 else 2
-                if pulse_frames > 0:
-                    col = 2 if (idx + tick) % 2 == 0 else 1
-                try:
-                    stdscr.addstr(y, 2, line[:left_w], curses.color_pair(col) | curses.A_BOLD)
-                except curses.error:
-                    pass
+            if not use_kitty_gfx and spider_rows > 0:
+                logo_to_use = SPIDER_LOGO if spider_rows >= 14 else SPIDER_LOGO_COMPACT
+                for idx, line in enumerate(logo_to_use):
+                    y = 2 + idx
+                    if y >= h - 6:
+                        break
+                    col = 1 if (idx + (tick // 3)) % 3 != 0 else 2
+                    if pulse_frames > 0:
+                        col = 2 if (idx + tick) % 2 == 0 else 1
+                    try:
+                        stdscr.addstr(y, 2, line[:left_w], curses.color_pair(col) | curses.A_BOLD)
+                    except curses.error:
+                        pass
 
-            sense_y = 2 + len(logo_to_use) + (1 if h >= 27 else 0)
+            sense_y = 2 + spider_rows + (1 if h >= 27 else 0)
             if sense_y + 5 <= h - 4:
                 try:
                     stdscr.addstr(sense_y, 2, "┌── SPIDER-SENSE TELEMETRY ──┐", curses.color_pair(2) | curses.A_BOLD)
@@ -677,9 +772,25 @@ def main(stdscr):
         tick += 1
         stdscr.refresh()
 
+        if use_kitty_gfx:
+            cur_state = (show_left_col, spider_rows, mode_idx, h, w)
+            if show_left_col and spider_rows > 0:
+                if cur_state != last_kitty_state or (tick % 15 == 1):
+                    kitty_place_image(2099 + mode_idx, row_1idx=3, col_1idx=3, cols=30, rows=spider_rows)
+                    last_kitty_state = cur_state
+            elif last_kitty_state is not None and last_kitty_state[0]:
+                kitty_clear_images()
+                last_kitty_state = cur_state
+
+    if use_kitty_gfx:
+        kitty_clear_images()
+
 
 if __name__ == "__main__":
     try:
         curses.wrapper(main)
     except KeyboardInterrupt:
         pass
+    finally:
+        if is_kitty_terminal():
+            kitty_clear_images()
