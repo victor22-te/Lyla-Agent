@@ -9,6 +9,7 @@ from ..audio.stt import CloudSTT
 from ..audio.capture import AudioCapture
 from ..tools.calendar import CalendarManager
 from ..tools.system import SystemTools
+from ..tools.terminal import TerminalTools
 
 class LylaAgent:
     """
@@ -32,6 +33,7 @@ class LylaAgent:
             db_path=self.config.episodic_db_path
         )
         self.system = SystemTools(on_alarm_trigger=self.speak_reply)
+        self.terminal = TerminalTools()
 
     def _build_runtime_context(self) -> str:
         """Inyecta el estado real en vivo (modelo activo, tokens reales, sistema y agenda) en el prompt."""
@@ -53,7 +55,16 @@ class LylaAgent:
             "- Si Víctor te pide agendar/crear un evento en su calendario durante la conversación, incluye al final de tu respuesta la etiqueta exacta: "
             "`[CALENDAR_ADD: Título del evento | YYYY-MM-DD HH:MM]`.\n"
             "- Si Víctor te pide programar una alarma o temporizador (ej. 'pon una alarma en 5m para...'), incluye al final de tu respuesta la etiqueta exacta: "
-            "`[ALARM_ADD: 5m | Mensaje de la alarma]`."
+            "`[ALARM_ADD: 5m | Mensaje de la alarma]`.\n\n"
+            "### Control Autónomo de Terminal y Sistema Arch Linux:\n"
+            "Tienes control sobre el sistema Arch Linux de Víctor a través de tu enlace neuronal 2099. "
+            "Cuando Víctor te pida realizar acciones en su sistema, usa SIEMPRE estas etiquetas ejecutables en tu respuesta:\n"
+            " • Abrir aplicaciones de escritorio (kitty, firefox, code, spotify, nautilus, discord, etc.): `[OPEN_APP: nombre_app]`\n"
+            " • Crear carpetas o directorios: `[MKDIR: /ruta/carpeta]`\n"
+            " • Escribir o editar archivos de código o scripts: `[WRITE_FILE: /ruta/archivo.py <<EOF\ncontenido\nEOF]`\n"
+            " • Leer archivos existentes: `[READ_FILE: /ruta/archivo]`\n"
+            " • Ejecutar comandos en la terminal de Linux (inspeccionar archivos, git, paquetes, etc.): `[EXEC: comando_bash]`\n"
+            "Siempre responde de forma conversacional con tu personalidad y añade las etiquetas necesarias para ejecutar las acciones en el sistema."
         )
 
     def process_message(self, user_text: str, voice_reply: bool = False) -> str:
@@ -77,6 +88,9 @@ class LylaAgent:
 
         # Detectar si LYLA emitió una etiqueta [CALENDAR_ADD: titulo | fecha_hora]
         reply_text = self._handle_calendar_tags(reply_text)
+
+        # Detectar y ejecutar acciones de terminal, archivos y aplicaciones
+        reply_text = self._handle_system_actions(reply_text)
 
         # Evaluar proactividad ("Oye Víctor...")
         proactive_advice = self.tracker.check_proactive_advice()
@@ -120,6 +134,61 @@ class LylaAgent:
             except Exception as e:
                 print(f"\n  [Alarma] No se pudo programar: {e}")
         return re.sub(alarm_pattern, "", reply_text).strip()
+
+    def _handle_system_actions(self, reply_text: str) -> str:
+        """Detecta y ejecuta acciones del sistema, terminal, archivos y aplicaciones generadas por LYLA."""
+        action_results = []
+
+        # 1. OPEN_APP: [OPEN_APP: nombre_app]
+        app_pattern = r"\[OPEN_APP:\s*([^\]]+?)\s*\]"
+        for app in re.findall(app_pattern, reply_text):
+            res = self.terminal.open_app(app.strip())
+            icon = "" if res["success"] else ""
+            action_results.append(f"{icon}  [App] {res['message']}")
+        reply_text = re.sub(app_pattern, "", reply_text)
+
+        # 2. MKDIR: [MKDIR: ruta]
+        mkdir_pattern = r"\[MKDIR:\s*([^\]]+?)\s*\]"
+        for p_str in re.findall(mkdir_pattern, reply_text):
+            res = self.terminal.create_directory(p_str.strip())
+            icon = "" if res["success"] else ""
+            action_results.append(f"{icon}  [Directorio] {res['message']}")
+        reply_text = re.sub(mkdir_pattern, "", reply_text)
+
+        # 3. WRITE_FILE: [WRITE_FILE: ruta <<EOF\ncontenido\nEOF]
+        wf_pattern = r"\[WRITE_FILE:\s*([^\s<]+)\s*<<EOF\n([\s\S]*?)\nEOF\s*\]"
+        for f_path, content in re.findall(wf_pattern, reply_text):
+            res = self.terminal.write_file(f_path.strip(), content)
+            icon = "" if res["success"] else ""
+            action_results.append(f"{icon}  [Código] {res['message']}")
+        reply_text = re.sub(wf_pattern, "", reply_text)
+
+        # 4. READ_FILE: [READ_FILE: ruta]
+        rf_pattern = r"\[READ_FILE:\s*([^\]]+?)\s*\]"
+        for f_path in re.findall(rf_pattern, reply_text):
+            res = self.terminal.read_file(f_path.strip())
+            if res["success"]:
+                action_results.append(f"  [Archivo: {res['path']}]\n```\n{res['content']}\n```")
+            else:
+                action_results.append(f"  [Archivo] {res['message']}")
+        reply_text = re.sub(rf_pattern, "", reply_text)
+
+        # 5. EXEC: [EXEC: comando]
+        exec_pattern = r"\[EXEC:\s*([^\]]+?)\s*\]"
+        for cmd in re.findall(exec_pattern, reply_text):
+            res = self.terminal.run_command(cmd.strip())
+            icon = "" if res["success"] else ""
+            out_preview = res["output"]
+            if len(out_preview.splitlines()) > 10:
+                lines = out_preview.splitlines()
+                out_preview = "\n".join(lines[:10]) + f"\n... ({len(lines)-10} líneas más)"
+            action_results.append(f"{icon}  [Terminal: `{cmd.strip()}`]\n{out_preview}")
+        reply_text = re.sub(exec_pattern, "", reply_text)
+
+        cleaned = reply_text.strip()
+        if action_results:
+            cleaned += "\n\n" + "\n".join(action_results)
+        return cleaned
 
     def get_models_status_report(self):
         """Devuelve el reporte de uso de tokens y porcentajes por modelo."""
@@ -165,7 +234,9 @@ class LylaAgent:
         if cmd in ["/comands", "/commands", "/comandos", "/help", "/ayuda", "comands", "commands", "comandos", "help"]:
             txt = (
                 "  COMANDOS DISPONIBLES EN LYLA (HUD & CLI):\n"
-                " • /comands                  : Muestra esta lista de comandos\n"
+                " • /run | /exec <comando>    : Ejecuta comando en la terminal Arch Linux\n"
+                " • /open <aplicación>        : Abre una aplicación (kitty, firefox, spotify...)\n"
+                " • /mkdir <ruta>             : Crea una carpeta o directorio\n"
                 " • /model | /modelo [opción] : Rota al siguiente modelo o elige uno (/model groq, /model 1)\n"
                 " • /status | /stats          : Muestra tokens y % de cuota de cada modelo\n"
                 " • /calendar | /agenda       : Ver/agregar eventos (/calendar add Junta | 2026-11-08 16:00)\n"
@@ -178,6 +249,27 @@ class LylaAgent:
                 " • /stop | /shh              : Silencia la voz de LYLA inmediatamente"
             )
             return {"text": txt, "speak": False, "voice_enabled": voice_enabled}
+
+        if cmd in ["/run", "/exec", "run", "exec"]:
+            if not cmd_arg:
+                return {"text": "  Uso: /run <comando de bash> (ej. /run ls -la ~/Proyectos)", "speak": False, "voice_enabled": voice_enabled}
+            res = self.terminal.run_command(cmd_arg)
+            icon = "" if res["success"] else ""
+            return {"text": f"{icon}  [Terminal: `{cmd_arg}`]\n{res['output']}", "speak": False, "voice_enabled": voice_enabled}
+
+        if cmd in ["/open", "open", "/abrir", "abrir"]:
+            if not cmd_arg:
+                return {"text": "  Uso: /open <aplicación> (ej. /open firefox, /open kitty, /open spotify)", "speak": False, "voice_enabled": voice_enabled}
+            res = self.terminal.open_app(cmd_arg)
+            icon = "" if res["success"] else ""
+            return {"text": f"{icon}  {res['message']}", "speak": False, "voice_enabled": voice_enabled}
+
+        if cmd in ["/mkdir", "mkdir"]:
+            if not cmd_arg:
+                return {"text": "  Uso: /mkdir <ruta> (ej. /mkdir ~/proyectos-2099)", "speak": False, "voice_enabled": voice_enabled}
+            res = self.terminal.create_directory(cmd_arg)
+            icon = "" if res["success"] else ""
+            return {"text": f"{icon}  {res['message']}", "speak": False, "voice_enabled": voice_enabled}
 
         if cmd in ["/stop", "/shh", "/calla", "stop", "shh"]:
             self.tts.player.stop()

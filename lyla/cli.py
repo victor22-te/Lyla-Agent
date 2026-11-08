@@ -28,6 +28,10 @@ CLI_COMMANDS = [
     "/comands",
     "/commands",
     "/comandos",
+    "/run",
+    "/exec",
+    "/open",
+    "/mkdir",
     "/calendar",
     "/agenda",
     "/alarm",
@@ -53,6 +57,10 @@ BARE_COMMANDS = [
     "comands",
     "commands",
     "comandos",
+    "run",
+    "exec",
+    "open",
+    "mkdir",
     "calendar",
     "agenda",
     "alarm",
@@ -142,6 +150,9 @@ def print_commands_list():
     print(
         f"\n{CYAN}{BOLD}  Comandos Disponibles en LYLA (SKILLS.md):{RESET}\n"
         f"  {BOLD}/comands{RESET}                  : Muestra esta lista de comandos disponibles\n"
+        f"  {BOLD}/run{RESET} | {BOLD}/exec{RESET} <cmd>       : Ejecuta comandos en la terminal de Arch Linux\n"
+        f"  {BOLD}/open{RESET} <aplicación>        : Abre una aplicación (kitty, firefox, spotify, code...)\n"
+        f"  {BOLD}/mkdir{RESET} <ruta>             : Crea una carpeta o directorio en el sistema\n"
         f"  {BOLD}/model{RESET} | {BOLD}/modelo{RESET} [opción] : Cambia al siguiente modelo disponible o selecciona uno específico\n"
         f"  {BOLD}/status{RESET} | {BOLD}/stats{RESET}          : Muestra estado de modelos, tokens consumidos y % de cuota disponible\n"
         f"  {BOLD}/calendar{RESET} | {BOLD}/agenda{RESET}       : Muestra próximos eventos, agrega ('/calendar add Título | YYYY-MM-DD HH:MM') o vincula Google ('/calendar auth')\n"
@@ -219,6 +230,33 @@ def main():
 
             elif cmd in ["/comands", "/commands", "/comandos", "/help", "/ayuda", "comands", "commands", "comandos", "help"]:
                 print_commands_list()
+                continue
+
+            elif cmd in ["/run", "/exec", "run", "exec"]:
+                if not cmd_arg:
+                    print(f"\n{YELLOW}Uso: /run <comando de bash> (ej. /run ls -la ~/Proyectos){RESET}\n")
+                else:
+                    res = agent.terminal.run_command(cmd_arg)
+                    color = GREEN if res["success"] else YELLOW
+                    print(f"\n{color}  [Terminal: `{cmd_arg}`]{RESET}\n{res['output']}\n")
+                continue
+
+            elif cmd in ["/open", "open", "/abrir", "abrir"]:
+                if not cmd_arg:
+                    print(f"\n{YELLOW}Uso: /open <aplicación> (ej. /open firefox, /open kitty, /open spotify){RESET}\n")
+                else:
+                    res = agent.terminal.open_app(cmd_arg)
+                    color = GREEN if res["success"] else YELLOW
+                    print(f"\n{color}  {res['message']}{RESET}\n")
+                continue
+
+            elif cmd in ["/mkdir", "mkdir"]:
+                if not cmd_arg:
+                    print(f"\n{YELLOW}Uso: /mkdir <ruta> (ej. /mkdir ~/proyectos-2099){RESET}\n")
+                else:
+                    res = agent.terminal.create_directory(cmd_arg)
+                    color = GREEN if res["success"] else YELLOW
+                    print(f"\n{color}  {res['message']}{RESET}\n")
                 continue
 
             elif cmd in ["/calendar", "/agenda", "calendar", "agenda"]:

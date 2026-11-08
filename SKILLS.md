@@ -13,6 +13,9 @@ Todos los comandos cuentan con **autocompletado mediante la tecla `Tab`** en la 
 | Comando | Alias soportados | Descripción |
 | :--- | :--- | :--- |
 | `/comands` | `/commands`, `/comandos`, `/help`, `comands` | Muestra la lista de todos los comandos disponibles en el CLI. |
+| `/run <comando>` | `/exec`, `run`, `exec` | Ejecuta comandos directamente en la terminal de Arch Linux y muestra la salida en vivo. |
+| `/open <app>` | `/abrir`, `open`, `abrir` | Abre aplicaciones de escritorio en segundo plano (kitty, firefox, spotify, code, nautilus...). |
+| `/mkdir <ruta>` | `mkdir` | Crea directorios o carpetas en el sistema (`mkdir -p`). |
 | `/model [opción]` | `/modelo`, `model`, `modelo` | Sin argumentos, rota al siguiente proveedor/modelo disponible (Gemini ↔ Groq). Con argumento (`/model groq`, `/model gemini`, `/model 2`, `/model openai/gpt-oss-120b`), selecciona ese modelo directamente. Soporta autocompletado de modelos con `Tab`. |
 | `/calendar [acción]` | `/agenda`, `calendar`, `agenda` | Muestra tu agenda próxima. Soporta `/calendar add <título> \| <YYYY-MM-DD HH:MM>`, `/calendar del <id>` y `/calendar auth` (vincular Google Calendar OAuth2). También puedes pedirle a LYLA en lenguaje natural que agende o consulte eventos. |
 | `/status` | `/stats`, `status`, `stats` | Muestra el estado de todos los modelos configurados a nivel de tokens consumidos hoy, límite diario, **porcentaje (%) usado / libre**, llamadas y latencia. |
@@ -36,6 +39,12 @@ Todos los comandos cuentan con **autocompletado mediante la tecla `Tab`** en la 
 
 ## 2. Habilidades Automáticas (Skills Pasivas)
 
+- **Control Autónomo de Terminal y Sistema (Acciones de Arch Linux):**
+  LYLA puede realizar acciones reales en el sistema cuando se lo pides en lenguaje natural (tanto por voz como por texto):
+  - **Crear carpetas**: E.g. *"Lyla, crea una carpeta llamada 'scripts' en mi home"*.
+  - **Abrir aplicaciones**: E.g. *"Lyla, ábreme Firefox y Kitty"*.
+  - **Escribir/editar código**: E.g. *"Lyla, crea un script en Python que..."*.
+  - **Ejecutar comandos en la terminal**: E.g. *"Lyla, fíjate cuántos archivos hay en ~/Proyectos"*.
 - **Memoria Episódica Automática (`Recuerda que...`):**
   Al incluir frases como *"recuerda que..."*, *"anota que..."* o *"no olvides que..."* en cualquier mensaje, LYLA extrae el hecho automáticamente y lo guarda de forma persistente en SQLite (`lyla_memory.db`).
 - **Router Multi-Proveedor con Fallback Instantáneo:**
