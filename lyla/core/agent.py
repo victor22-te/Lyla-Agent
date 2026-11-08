@@ -172,6 +172,7 @@ class LylaAgent:
                 " • /alarm | /alarma <t> <m>  : Programa alarma (/alarm 5m Revisar deploy)\n"
                 " • /sys | /system            : Telemetría Arch Linux (CPU, RAM, Disco, Batería)\n"
                 " • /mobile [mensaje]         : Ping al teléfono vía KDE Connect\n"
+                " • /wallpaper | /fondo        : Cambia entre fondos animados (Hanabi) y estáticos\n"
                 " • /memory                   : Ver recuerdos guardados en SQLite\n"
                 " • /voice                    : Activa/desactiva respuestas por voz\n"
                 " • /stop | /shh              : Silencia la voz de LYLA inmediatamente"
@@ -270,6 +271,10 @@ class LylaAgent:
         if cmd in ["/mobile", "mobile"]:
             res_mob = self.system.ping_mobile(cmd_arg or "Ping desde LYLA 2099 HUD")
             return {"text": f"  {res_mob}", "speak": False, "voice_enabled": voice_enabled}
+
+        if cmd in ["/wallpaper", "/fondo", "wallpaper", "fondo"]:
+            res_wall = self.system.cycle_wallpaper()
+            return {"text": res_wall["message"], "speak": False, "voice_enabled": voice_enabled}
 
         # Mensaje normal de conversación con LYLA
         reply = self.process_message(user_input, voice_reply=False)

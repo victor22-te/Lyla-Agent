@@ -111,20 +111,73 @@ window.lyla-hud-window {
     color: #ff2a4b;
     border: 1px solid #ff2a4b;
     border-radius: 8px;
-    padding: 6px 12px;
+    padding: 6px 14px;
     font-family: "JetBrainsMono Nerd Font", monospace;
     font-weight: 800;
-    font-size: 12px;
+    font-size: 15px;
 }
 .lyla-btn-mic-active {
     background: #ff0000;
     color: #ffffff;
     border: 2px solid #00f0ff;
     border-radius: 8px;
-    padding: 6px 12px;
+    padding: 6px 14px;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-weight: 800;
+    font-size: 15px;
+}
+.lyla-btn-icon {
+    background: linear-gradient(135deg, rgba(0,240,255,0.22) 0%, rgba(255,42,75,0.18) 100%);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.65);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-weight: 800;
+    font-size: 15px;
+}
+.lyla-btn-icon:hover {
+    background: linear-gradient(135deg, #00f0ff 0%, #007799 100%);
+    color: #080a12;
+    border-color: #00f0ff;
+}
+.lyla-dash-card {
+    background-color: rgba(10, 14, 25, 0.88);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+}
+.lyla-dash-card-active {
+    background-color: rgba(14, 25, 35, 0.95);
+    border: 1.5px solid #00ff9d;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+}
+.lyla-dash-title {
+    color: #00f0ff;
     font-family: "JetBrainsMono Nerd Font", monospace;
     font-weight: 800;
     font-size: 12px;
+}
+.lyla-dash-sub {
+    color: #a0c0ff;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 10.5px;
+}
+.lyla-progressbar progress {
+    background-color: #ff2a4b;
+    border-radius: 4px;
+}
+.lyla-progressbar-active progress {
+    background-color: #00ff9d;
+    border-radius: 4px;
+}
+.lyla-progressbar trough {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    min-height: 8px;
 }
 .lyla-entry {
     background-color: rgba(12, 18, 32, 0.95);
@@ -240,11 +293,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         row_top_btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         btn_grid.append(row_top_btns)
 
-        b_status = Gtk.Button(label="󰐷  Status Modelos (Tokens/%)")
-        b_status.add_css_class("lyla-btn-status")
-        b_status.set_hexpand(True)
-        b_status.connect("clicked", self.on_show_status)
-        row_top_btns.append(b_status)
+        self.b_status = Gtk.Button(label="󰐷  Status Modelos (Tokens/%)")
+        self.b_status.add_css_class("lyla-btn-status")
+        self.b_status.set_hexpand(True)
+        self.b_status.connect("clicked", self.on_show_status)
+        row_top_btns.append(self.b_status)
 
         self.b_voice_toggle = Gtk.Button(label="  Voz ON" if self.voice_enabled else "  Voz OFF")
         self.b_voice_toggle.add_css_class("lyla-btn")
@@ -285,25 +338,46 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         b_wall.connect("clicked", self.on_switch_wallpaper)
         row_sys_btns.append(b_wall)
 
-        # Panel de Consola Holográfica (respuestas de LYLA, comandos y Status de Tokens)
+        # Panel de Consola Holográfica y Dashboard (Stack conmutable)
         console_frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         console_frame.add_css_class("lyla-console-frame")
         console_frame.set_vexpand(True)
         main_box.append(console_frame)
 
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_vexpand(True)
-        scroll.set_hexpand(True)
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        console_frame.append(scroll)
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_vexpand(True)
+        self.stack.set_hexpand(True)
+        console_frame.append(self.stack)
+
+        # Página 1: Consola de Chat con LYLA
+        scroll_chat = Gtk.ScrolledWindow()
+        scroll_chat.set_vexpand(True)
+        scroll_chat.set_hexpand(True)
+        scroll_chat.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 
         self.text_view = Gtk.TextView()
         self.text_view.set_editable(False)
         self.text_view.set_cursor_visible(False)
         self.text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         self.text_view.add_css_class("lyla-console-text")
-        scroll.set_child(self.text_view)
+        scroll_chat.set_child(self.text_view)
         self.text_buffer = self.text_view.get_buffer()
+        self.stack.add_named(scroll_chat, "chat")
+
+        # Página 2: Dashboard Visual de Modelos Cloud (Tokens & Porcentajes %)
+        scroll_dash = Gtk.ScrolledWindow()
+        scroll_dash.set_vexpand(True)
+        scroll_dash.set_hexpand(True)
+        scroll_dash.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+
+        self.dash_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.dash_box.set_margin_top(4)
+        self.dash_box.set_margin_bottom(4)
+        self.dash_box.set_margin_start(4)
+        self.dash_box.set_margin_end(4)
+        scroll_dash.set_child(self.dash_box)
+        self.stack.add_named(scroll_dash, "dashboard")
 
         # Barra inferior para hablar con LYLA: Entrada de texto + Botón Enviar + Micrófono
         chat_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -311,7 +385,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
         self.entry = Gtk.Entry()
         self.entry.set_hexpand(True)
-        self.entry.set_placeholder_text("Habla con LYLA o usa /comands, /model, /status, /calendar... (Tab autocompleta)")
+        self.entry.set_placeholder_text("Habla con LYLA o usa /comands, /model, /status, /wallpaper... (Tab)")
         self.entry.add_css_class("lyla-entry")
         self.entry.connect("activate", self.on_send_text)
         chat_bar.append(self.entry)
@@ -321,14 +395,15 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         key_ctrl.connect("key-pressed", self.on_entry_key_pressed)
         self.entry.add_controller(key_ctrl)
 
-        b_send = Gtk.Button(label="󰒊  Enviar")
-        b_send.add_css_class("lyla-btn")
+        b_send = Gtk.Button(label="󰒊")
+        b_send.add_css_class("lyla-btn-icon")
+        b_send.set_tooltip_text("Enviar mensaje a LYLA (Enter)")
         b_send.connect("clicked", self.on_send_text)
         chat_bar.append(b_send)
 
-        self.b_mic = Gtk.Button(label="  Hablar")
+        self.b_mic = Gtk.Button(label="")
         self.b_mic.add_css_class("lyla-btn-mic")
-        self.b_mic.set_tooltip_text("Hablar por micrófono con LYLA (clic para grabar, clic para enviar)")
+        self.b_mic.set_tooltip_text("Hablar por micrófono con LYLA")
         self.b_mic.connect("clicked", self.on_toggle_mic)
         chat_bar.append(self.b_mic)
 
@@ -408,9 +483,90 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self.lbl_sub.set_text("  VOZ SILENCIADA • LISTO PARA ESCRIBIR")
 
     def on_show_status(self, *_):
-        status_txt = self.agent.format_models_status_text()
-        self.append_console(status_txt)
+        if self.stack.get_visible_child_name() == "chat":
+            self.refresh_dashboard()
+            self.stack.set_visible_child_name("dashboard")
+            self.b_status.set_label("󱇪  Volver al Chat")
+        else:
+            self.stack.set_visible_child_name("chat")
+            self.b_status.set_label("󰐷  Status Modelos (Tokens/%)")
+
+    def refresh_dashboard(self):
+        # Limpiar dashboard previo
+        while child := self.dash_box.get_first_child():
+            self.dash_box.remove(child)
+
+        hdr_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        lbl_dash_title = Gtk.Label(label="󰐷  STATUS DE MODELOS CLOUD (TOKENS & CUOTA)")
+        lbl_dash_title.add_css_class("lyla-dash-title")
+        lbl_dash_title.set_hexpand(True)
+        lbl_dash_title.set_xalign(0.0)
+        hdr_box.append(lbl_dash_title)
+
+        b_back = Gtk.Button(label="󰁍 Volver")
+        b_back.add_css_class("lyla-btn")
+        b_back.connect("clicked", lambda *_: self.on_show_status())
+        hdr_box.append(b_back)
+        self.dash_box.append(hdr_box)
+
+        report = self.agent.get_models_status_report()
+        for item in report:
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            card.add_css_class("lyla-dash-card-active" if item["active"] else "lyla-dash-card")
+
+            top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            mark = "● [ACTIVO]" if item["active"] else "○"
+            prov_str = item["provider"].upper()
+            mod_str = item["model"]
+            lbl_m = Gtk.Label(label=f"{mark} {prov_str} → {mod_str}")
+            lbl_m.set_xalign(0.0)
+            lbl_m.set_hexpand(True)
+            lbl_m.add_css_class("lyla-model-badge" if item["active"] else "lyla-dash-title")
+            top_row.append(lbl_m)
+
+            if not item["active"]:
+                b_select = Gtk.Button(label="󰯊 Usar")
+                b_select.add_css_class("lyla-btn")
+                b_select.connect("clicked", lambda *_, m=mod_str: self._switch_model_from_dash(m))
+                top_row.append(b_select)
+
+            card.append(top_row)
+
+            # Barra de Progreso
+            pbar = Gtk.ProgressBar()
+            pbar.set_fraction(max(0.0, min(1.0, item["used_pct"] / 100.0)))
+            pbar.add_css_class("lyla-progressbar-active" if item["active"] else "lyla-progressbar")
+            card.append(pbar)
+
+            # Métricas
+            lbl_det = Gtk.Label(
+                label=f"Tokens: {item['tokens_total']:,} / {item['daily_limit']:,} "
+                      f"({item['used_pct']:.1f}% usado │ {item['remaining_pct']:.1f}% libre) • "
+                      f"Llamadas: {item['calls']} • Lat: {item['last_latency']:.2f}s"
+            )
+            lbl_det.add_css_class("lyla-dash-sub")
+            lbl_det.set_xalign(0.0)
+            card.append(lbl_det)
+
+            self.dash_box.append(card)
+
+        # Resumen general de la sesión
+        stats = self.agent.tracker.get_summary()
+        lbl_sess = Gtk.Label(
+            label=f" Sesión: {stats['total_tokens_in']} in / {stats['total_tokens_out']} out "
+                  f"({stats['total_tokens']} total) • Uptime: {stats['uptime_seconds']}s"
+        )
+        lbl_sess.add_css_class("lyla-dash-sub")
+        lbl_sess.set_xalign(0.0)
+        self.dash_box.append(lbl_sess)
+
+    def _switch_model_from_dash(self, model_name: str):
+        try:
+            self.agent.router.switch_model(model_name)
+        except Exception:
+            pass
         self._refresh_model_badge()
+        self.refresh_dashboard()
 
     def on_send_text(self, *_):
         user_text = self.entry.get_text().strip()
@@ -461,17 +617,19 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             # Iniciar grabación con PipeWire
             self.agent.tts.player.stop()
             self.is_recording = True
-            self.b_mic.set_label("󰒊  Enviar")
+            self.b_mic.set_label("󰓛")  # Icono de stop cuadrado
             self.b_mic.remove_css_class("lyla-btn-mic")
             self.b_mic.add_css_class("lyla-btn-mic-active")
-            self.lbl_sub.set_text("  GRABANDO VOZ... HAZ CLIC EN '󰒊 Enviar' AL TERMINAR")
+            self.b_mic.set_tooltip_text("Detener grabación y enviar audio")
+            self.lbl_sub.set_text("  GRABANDO VOZ... HAZ CLIC EN '󰓛' PARA PARAR Y ENVIAR")
             self.rec_file = self.agent.capture.start_recording()
         else:
             # Detener grabación y transcribir en segundo plano
             self.is_recording = False
-            self.b_mic.set_label("  Hablar")
+            self.b_mic.set_label("")  # Icono de micrófono
             self.b_mic.remove_css_class("lyla-btn-mic-active")
             self.b_mic.add_css_class("lyla-btn-mic")
+            self.b_mic.set_tooltip_text("Hablar por micrófono con LYLA")
             self.agent.capture.stop_recording()
             self.lbl_sub.set_text("  TRANSCRIBIENDO AUDIO EN LA NUBE...")
 
@@ -496,14 +654,10 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             threading.Thread(target=_stt_worker, daemon=True).start()
 
     def on_switch_wallpaper(self, *_):
-        wallpapers = [
-            "file:///home/spider-man/Pictures/spiderman_2099_cyber.jpg",
-            "file:///home/spider-man/Pictures/spiderman_2099_hud_blueprint.png",
-        ]
-        self.wall_idx = (self.wall_idx + 1) % len(wallpapers)
-        uri = wallpapers[self.wall_idx]
-        subprocess.Popen(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", uri])
-        subprocess.Popen(["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", uri])
+        res = self.agent.system.cycle_wallpaper(self.wall_idx)
+        self.wall_idx = res.get("index", (self.wall_idx + 1))
+        msg = res.get("message", "Fondo de pantalla actualizado")
+        self.lbl_sub.set_text(msg)
 
     def on_tick(self):
         self.angle = (self.angle + 0.045) % (2 * math.pi)

@@ -35,6 +35,8 @@ CLI_COMMANDS = [
     "/sys",
     "/system",
     "/mobile",
+    "/wallpaper",
+    "/fondo",
     "/hud",
     "/status",
     "/stats",
@@ -58,6 +60,8 @@ BARE_COMMANDS = [
     "sys",
     "system",
     "mobile",
+    "wallpaper",
+    "fondo",
     "status",
     "stats",
     "model",
@@ -144,6 +148,7 @@ def print_commands_list():
         f"  {BOLD}/alarm{RESET} | {BOLD}/alarma{RESET} <t> <msg>: Programa una alarma con notificación + voz (ej. '/alarm 5m Revisar deploy' o '/alarm 18:30 Junta')\n"
         f"  {BOLD}/sys{RESET} | {BOLD}/system{RESET}            : Muestra telemetría del sistema Arch Linux (CPU, RAM, Disco, Batería, Uptime)\n"
         f"  {BOLD}/mobile{RESET} [mensaje]         : Envía un ping/alerta a tu teléfono vía KDE Connect\n"
+        f"  {BOLD}/wallpaper{RESET} | {BOLD}/fondo{RESET}       : Cambia entre fondos animados (Hanabi) y estáticos\n"
         f"  {BOLD}/hud{RESET}                      : Abre el Widget Holográfico GTK4 de LYLA en el escritorio\n"
         f"  {BOLD}/voice{RESET}                    : Activa o desactiva la síntesis de voz (Edge-TTS)\n"
         f"  {BOLD}/listen{RESET}                   : Graba tu voz con micrófono y la transcribe en la nube\n"

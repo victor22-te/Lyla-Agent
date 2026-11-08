@@ -19,6 +19,7 @@ Todos los comandos cuentan con **autocompletado mediante la tecla `Tab`** en la 
 | `/alarm [tiempo] [msg]` | `/alarma`, `alarm`, `alarma` | Lista alarmas activas o programa una alarma con notificación de escritorio + voz (ej. `/alarm 5m Revisar deploy` o `/alarm 18:30 Llamada`). |
 | `/sys` | `/system`, `sys`, `system` | Muestra la telemetría en tiempo real de Arch Linux (CPU, RAM, Disco, Batería, Uptime). |
 | `/mobile [mensaje]` | `mobile` | Envía un ping o alerta a tu teléfono móvil vinculado mediante KDE Connect. |
+| `/wallpaper` | `/fondo`, `wallpaper`, `fondo` | Cambia el fondo de pantalla de forma inteligente interactuando con la extensión Hanabi (fondos animados de vídeo) y fondos nativos de imagen estáticos de GNOME. |
 | `/hud` | `hud` | Abre el Widget Holográfico de Escritorio (GTK4 + Cairo) con chat, micrófono y botón de Status de Modelos. |
 | `/voice` | — | Activa o desactiva la síntesis de voz en la nube (Edge-TTS) para las respuestas de LYLA. |
 | `/listen` | — | Inicia la grabación de voz por micrófono con PipeWire (`pw-record`), la transcribe en la nube (Groq Whisper / Gemini) y envía el mensaje a LYLA. |

@@ -199,3 +199,104 @@ class SystemTools:
         except Exception as e:
             return f"Error comunicando con el dispositivo móvil: {e}"
 
+    # -------------------------------------------------------------------------
+    # Gestor Híbrido de Fondos de Pantalla (Hanabi Live Videos + GNOME Imágenes)
+    # -------------------------------------------------------------------------
+    def get_available_wallpapers(self) -> List[Dict[str, str]]:
+        """
+        Escanea y lista todos los fondos animados (vídeos mp4, webm, mkv) y estáticos (jpg, png, webp)
+        disponibles en ~/Pictures, ~/Imágenes, ~/Videos y ~/Vídeos sin duplicados.
+        """
+        search_dirs = [
+            Path("/home/spider-man/Pictures"),
+            Path("/home/spider-man/Imágenes"),
+            Path("/home/spider-man/Videos"),
+            Path("/home/spider-man/Vídeos"),
+        ]
+        videos: List[Dict[str, str]] = []
+        images: List[Dict[str, str]] = []
+        seen_names = set()
+
+        for sdir in search_dirs:
+            if not sdir.exists():
+                continue
+            for p in sorted(sdir.glob("*.*")):
+                if p.is_file() and not p.name.startswith(".") and not p.name.endswith(".bak"):
+                    ext = p.suffix.lower()
+                    name_low = p.name.lower()
+                    if name_low in seen_names:
+                        continue
+                    if ext in [".mp4", ".webm", ".mkv", ".mov"]:
+                        seen_names.add(name_low)
+                        videos.append({"type": "video", "path": str(p.resolve()), "name": p.name})
+                    elif ext in [".jpg", ".jpeg", ".png", ".webp"]:
+                        if not any(ign in name_low for ign in ["avatar", "icon", "captura", "screenshot"]):
+                            seen_names.add(name_low)
+                            images.append({"type": "image", "path": str(p.resolve()), "name": p.name})
+
+        return videos + images
+
+    def cycle_wallpaper(self, current_index: int = 0) -> Dict[str, str]:
+        """
+        Cambia el fondo de pantalla de forma inteligente:
+        - Si el objetivo es un vídeo (.mp4/.webm): configura la extensión Hanabi y la activa.
+        - Si el objetivo es una imagen (.jpg/.png): desactiva Hanabi y aplica el fondo nativo de GNOME Shell.
+        """
+        wallpapers = self.get_available_wallpapers()
+        if not wallpapers:
+            return {
+                "success": False,
+                "message": "  No se encontraron fondos en ~/Pictures o ~/Videos",
+                "index": 0,
+            }
+
+        next_idx = (current_index + 1) % len(wallpapers)
+        target = wallpapers[next_idx]
+
+        has_gsettings = bool(shutil.which("gsettings"))
+        has_gnome_ext = bool(shutil.which("gnome-extensions"))
+
+        if target["type"] == "video":
+            # 1. Fondo Animado vía Hanabi Extension
+            if has_gsettings:
+                try:
+                    subprocess.Popen([
+                        "gsettings", "set", "io.github.jeffshee.hanabi-extension", "video-path", target["path"]
+                    ])
+                except Exception:
+                    pass
+            if has_gnome_ext:
+                try:
+                    subprocess.Popen([
+                        "gnome-extensions", "enable", "hanabi-extension@jeffshee.github.io"
+                    ])
+                except Exception:
+                    pass
+            desc = f"󰕧  Fondo animado (Hanabi): {target['name']}"
+        else:
+            # 2. Fondo Estático vía GNOME Background
+            if has_gnome_ext:
+                try:
+                    # Desactivar temporalmente Hanabi para que no tape la imagen estática
+                    subprocess.Popen([
+                        "gnome-extensions", "disable", "hanabi-extension@jeffshee.github.io"
+                    ])
+                except Exception:
+                    pass
+            if has_gsettings:
+                uri = f"file://{target['path']}"
+                try:
+                    subprocess.Popen(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", uri])
+                    subprocess.Popen(["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", uri])
+                except Exception:
+                    pass
+            desc = f"󰋩  Fondo estático: {target['name']}"
+
+        return {
+            "success": True,
+            "message": desc,
+            "index": next_idx,
+            "item": target,
+            "total": len(wallpapers),
+        }
+

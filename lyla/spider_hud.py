@@ -154,6 +154,8 @@ HUD_COMMANDS = [
     "/sys",
     "/system",
     "/mobile",
+    "/wallpaper",
+    "/fondo",
     "/memory",
     "/voice",
     "/stop",
@@ -308,6 +310,7 @@ def main(stdscr):
             use_kitty_gfx = False
     last_kitty_state = None
     last_hw = (0, 0)
+    prev_status_panel = False
 
     # Inicializar LYLA Engine
     agent = LylaAgent()
@@ -484,15 +487,21 @@ def main(stdscr):
                     toggle_mic()
                 elif ch in (ord("s"), ord("S")):
                     show_status_panel = not show_status_panel
+                elif ch in (ord("w"), ord("W")):
+                    res_w = agent.system.cycle_wallpaper()
+                    status_banner = res_w.get("message", "Fondo cambiado")
                 elif ch in (ord("m"), ord("M")):
                     mode_idx = (mode_idx + 1) % len(modes)
                     apply_palette(mode_idx)
+                    if use_kitty_gfx:
+                        kitty_clear_images()
+                        last_kitty_state = None
                 elif ch in (ord("p"), ord("P")):
                     pulse_frames = 15
 
         now = time.time()
         dt = now - prev_time
-        if dt >= 0.6 or not cpu_pcts:
+        if dt >= 0.7 or not cpu_pcts:
             cur_cpu = read_cpu_times()
             for k, (idle, total) in cur_cpu.items():
                 p_idle, p_total = prev_cpu.get(k, (idle, total))
@@ -517,24 +526,13 @@ def main(stdscr):
         left_w = 32 if show_left_col else 0
         spider_rows = 14 if h >= 26 else (8 if h >= 19 else 0)
 
-        # Evitar que ncurses emita \x1b[2J (que en Kitty borra las imágenes gráficas) en cada frame
+        # Si cambió el tamaño de la terminal, limpiar todo
         if (h, w) != last_hw:
             stdscr.erase()
             last_hw = (h, w)
+            if use_kitty_gfx:
+                kitty_clear_images()
             last_kitty_state = None
-        else:
-            blank_full = " " * max(1, w - 1)
-            for ry_clr in range(h):
-                try:
-                    if use_kitty_gfx and show_left_col and (2 <= ry_clr < 2 + spider_rows):
-                        # No sobrescribir el área de la imagen de Kitty en la esquina superior izquierda
-                        rx_start = left_w + 2
-                        if rx_start < w - 1:
-                            stdscr.addstr(ry_clr, rx_start, " " * (w - 1 - rx_start))
-                    else:
-                        stdscr.addstr(ry_clr, 0, blank_full)
-                except curses.error:
-                    pass
 
         active_prov, active_mod = agent.router.get_active_model()
         v_badge = " VOZ ON" if voice_enabled else " VOZ OFF"
@@ -597,6 +595,14 @@ def main(stdscr):
         rem_w = max(20, w - rx_x - 2)
         chat_bottom = h - 4
         min_chat_rows = 4 if h < 24 else 5
+
+        if show_status_panel != prev_status_panel:
+            for r_clr in range(2, chat_bottom + 1):
+                try:
+                    stdscr.addstr(r_clr, rx_x, " " * rem_w)
+                except curses.error:
+                    pass
+            prev_status_panel = show_status_panel
 
         try:
             if show_status_panel:
@@ -773,10 +779,10 @@ def main(stdscr):
 
         # Footer Controls auto-ajustable al ancho de la ventana
         footer_candidates = [
-            " [Enter] Escribir/Comandos (Tab) │ [V]  Mic │ [S] 󰐷 Status Tokens/% │ [X] Callar │ [M] Traje │ [Q] Salir ",
-            " [Enter] Escribir (Tab) │ [V]  Mic │ [S] 󰐷 Status/% │ [X] Callar │ [M] Traje │ [Q] Salir ",
-            " [Enter] Chat/Cmd │ [V]  Mic │ [S] 󰐷 Status │ [X] Callar │ [M] Traje │ [Q] Salir ",
-            " [Enter] Chat │ [V]  │ [S] 󰐷 │ [X] Callar │ [M] │ [Q] Salir ",
+            " [Enter] Escribir (Tab) │ [V]  Mic │ [S] 󰐷 Status │ [W] 󰋩 Fondo │ [M] Traje │ [X] Callar │ [Q] Salir ",
+            " [Enter] Chat/Cmd │ [V]  Mic │ [S] 󰐷 Status │ [W] 󰋩 Fondo │ [M] Traje │ [X] Callar │ [Q] Salir ",
+            " [Enter] Chat │ [V]  │ [S] 󰐷 │ [W] 󰋩 │ [M] Traje │ [Q] Salir ",
+            " [Enter] Chat │ [V]  │ [S] 󰐷 │ [W] │ [M] │ [Q] Salir ",
         ]
         footer = footer_candidates[-1]
         for fc in footer_candidates:
@@ -796,7 +802,8 @@ def main(stdscr):
         if use_kitty_gfx:
             cur_state = (show_left_col, spider_rows, mode_idx, h, w)
             if show_left_col and spider_rows > 0:
-                if cur_state != last_kitty_state or tick <= 3 or (tick % 12 == 0):
+                if cur_state != last_kitty_state:
+                    kitty_clear_images()
                     kitty_display_png_file(
                         spider_png_files[mode_idx],
                         2099 + mode_idx,
