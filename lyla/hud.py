@@ -116,15 +116,46 @@ window.lyla-hud-window {
     font-weight: 800;
     font-size: 15px;
 }
-.lyla-btn-mic-active {
-    background: #ff0000;
+.lyla-btn-mic:hover {
+    background: linear-gradient(135deg, #ff2a4b 0%, #a00028 100%);
     color: #ffffff;
-    border: 2px solid #00f0ff;
+    border-color: #00f0ff;
+}
+.lyla-btn-trash {
+    background: linear-gradient(135deg, rgba(255, 42, 75, 0.25) 0%, rgba(140, 10, 30, 0.35) 100%);
+    color: #ff2a4b;
+    border: 1px solid rgba(255, 42, 75, 0.7);
     border-radius: 8px;
     padding: 6px 14px;
     font-family: "JetBrainsMono Nerd Font", monospace;
     font-weight: 800;
     font-size: 15px;
+}
+.lyla-btn-trash:hover {
+    background: #ff0000;
+    color: #ffffff;
+    border-color: #ff2a4b;
+}
+.lyla-btn-rec-send {
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.30) 0%, rgba(0, 255, 157, 0.35) 100%);
+    color: #00ff9d;
+    border: 1.5px solid #00ff9d;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-weight: 800;
+    font-size: 15px;
+}
+.lyla-btn-rec-send:hover {
+    background: #00ff9d;
+    color: #080a12;
+    border-color: #00ff9d;
+}
+.lyla-rec-time {
+    color: #00f0ff;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-weight: 800;
+    font-size: 11.5px;
 }
 .lyla-btn-icon {
     background: linear-gradient(135deg, rgba(0,240,255,0.22) 0%, rgba(255,42,75,0.18) 100%);
@@ -216,6 +247,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self.voice_enabled = self.agent.config.audio_enabled
         self.is_recording = False
         self.rec_file = None
+        self.rec_start_time = 0.0
+        self.rec_tick = 0
 
         self.angle = 0.0
         self.prev_idle = 0
@@ -379,18 +412,27 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         scroll_dash.set_child(self.dash_box)
         self.stack.add_named(scroll_dash, "dashboard")
 
-        # Barra inferior para hablar con LYLA: Entrada de texto + Botón Enviar + Micrófono
-        chat_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        main_box.append(chat_bar)
+        # Controlador de teclado global para silenciar con Esc o cancelar grabación
+        win_key_ctrl = Gtk.EventControllerKey()
+        win_key_ctrl.connect("key-pressed", self.on_window_key_pressed)
+        self.add_controller(win_key_ctrl)
+
+        # Barra inferior para hablar con LYLA: Stack conmutable entre "normal" y "recording"
+        self.bottom_stack = Gtk.Stack()
+        self.bottom_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        main_box.append(self.bottom_stack)
+
+        # ─── Vista Normal: Texto + Enviar + Micrófono ───
+        self.chat_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.bottom_stack.add_named(self.chat_bar, "normal")
 
         self.entry = Gtk.Entry()
         self.entry.set_hexpand(True)
         self.entry.set_placeholder_text("Habla con LYLA o usa /comands, /model, /status, /wallpaper... (Tab)")
         self.entry.add_css_class("lyla-entry")
         self.entry.connect("activate", self.on_send_text)
-        chat_bar.append(self.entry)
+        self.chat_bar.append(self.entry)
 
-        # Controlador de teclado para autocompletar con Tab y silenciar con Esc
         key_ctrl = Gtk.EventControllerKey()
         key_ctrl.connect("key-pressed", self.on_entry_key_pressed)
         self.entry.add_controller(key_ctrl)
@@ -399,13 +441,39 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         b_send.add_css_class("lyla-btn-icon")
         b_send.set_tooltip_text("Enviar mensaje a LYLA (Enter)")
         b_send.connect("clicked", self.on_send_text)
-        chat_bar.append(b_send)
+        self.chat_bar.append(b_send)
 
         self.b_mic = Gtk.Button(label="")
         self.b_mic.add_css_class("lyla-btn-mic")
         self.b_mic.set_tooltip_text("Hablar por micrófono con LYLA")
-        self.b_mic.connect("clicked", self.on_toggle_mic)
-        chat_bar.append(self.b_mic)
+        self.b_mic.connect("clicked", self.on_start_recording)
+        self.chat_bar.append(self.b_mic)
+
+        # ─── Vista Grabación: [ Cancelar] + [00:00] + [~~~~ Ondas ~~~~] + [󰒊 Enviar] ───
+        self.rec_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.bottom_stack.add_named(self.rec_bar, "recording")
+
+        b_trash = Gtk.Button(label="")
+        b_trash.add_css_class("lyla-btn-trash")
+        b_trash.set_tooltip_text("Cancelar grabación (descartar y borrar audio)")
+        b_trash.connect("clicked", self.on_cancel_recording)
+        self.rec_bar.append(b_trash)
+
+        self.lbl_rec_time = Gtk.Label(label="00:00")
+        self.lbl_rec_time.add_css_class("lyla-rec-time")
+        self.rec_bar.append(self.lbl_rec_time)
+
+        self.wave_canvas = Gtk.DrawingArea()
+        self.wave_canvas.set_hexpand(True)
+        self.wave_canvas.set_content_height(34)
+        self.wave_canvas.set_draw_func(self.on_draw_waveform)
+        self.rec_bar.append(self.wave_canvas)
+
+        b_rec_send = Gtk.Button(label="󰒊")
+        b_rec_send.add_css_class("lyla-btn-rec-send")
+        b_rec_send.set_tooltip_text("Terminar grabación y enviar a LYLA")
+        b_rec_send.connect("clicked", self.on_send_recording)
+        self.rec_bar.append(b_rec_send)
 
         # Mensaje inicial en el HUD
         prov, mod = self.agent.router.get_active_model()
@@ -444,6 +512,16 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         mark = self.text_buffer.create_mark(None, self.text_buffer.get_end_iter(), False)
         self.text_view.scroll_to_mark(mark, 0.0, True, 0.0, 1.0)
 
+    def on_window_key_pressed(self, _controller, keyval, _keycode, _state):
+        if keyval == Gdk.KEY_Escape:
+            if self.is_recording:
+                self.on_cancel_recording()
+                return True
+            else:
+                self.on_stop_voice()
+                return True
+        return False
+
     def on_entry_key_pressed(self, _controller, keyval, _keycode, _state):
         # Tab (GDK_KEY_Tab) -> autocompletar comandos y modelos igual que en el CLI
         if keyval == Gdk.KEY_Tab:
@@ -471,9 +549,12 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                     self.entry.set_position(-1)
             return True
 
-        # Escape silencia la voz inmediatamente sin cerrar la ventana
+        # Escape silencia la voz o cancela grabación
         if keyval == Gdk.KEY_Escape:
-            self.on_stop_voice()
+            if self.is_recording:
+                self.on_cancel_recording()
+            else:
+                self.on_stop_voice()
             return True
 
         return False
@@ -612,46 +693,115 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
         threading.Thread(target=_worker, daemon=True).start()
 
+    def on_start_recording(self, *_):
+        self.agent.tts.player.stop()
+        self.is_recording = True
+        self.rec_start_time = time.time()
+        self.rec_tick = 0
+        self.lbl_rec_time.set_text("00:00")
+        self.bottom_stack.set_visible_child_name("recording")
+        self.lbl_sub.set_text("  GRABANDO VOZ... [󰒊 ENVIAR] O [ CANCELAR]")
+        self.rec_file = self.agent.capture.start_recording()
+
+    def on_cancel_recording(self, *_):
+        self.is_recording = False
+        self.bottom_stack.set_visible_child_name("normal")
+        self.agent.capture.stop_recording()
+        if self.rec_file and os.path.exists(self.rec_file):
+            try:
+                os.unlink(self.rec_file)
+            except Exception:
+                pass
+        self.rec_file = None
+        self.lbl_sub.set_text("OPERADOR: VÍCTOR • GRABACIÓN CANCELADA")
+
+    def on_send_recording(self, *_):
+        self.is_recording = False
+        self.bottom_stack.set_visible_child_name("normal")
+        self.agent.capture.stop_recording()
+        self.lbl_sub.set_text("  TRANSCRIBIENDO AUDIO EN LA NUBE...")
+
+        rec_path = self.rec_file
+        self.rec_file = None
+
+        def _stt_worker():
+            try:
+                transcription = self.agent.stt.transcribe(rec_path) if rec_path else ""
+                if not transcription:
+                    GLib.idle_add(
+                        lambda: self.append_console("  No se detectó voz clara en la grabación.") or False
+                    )
+                    GLib.idle_add(
+                        lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
+                    )
+                    return
+                self.voice_enabled = True
+                GLib.idle_add(lambda: self.process_user_input(transcription, force_speak=True) or False)
+            except Exception as e:
+                GLib.idle_add(lambda: self.append_console(f"  Error STT: {e}") or False)
+                GLib.idle_add(
+                    lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
+                )
+
+        threading.Thread(target=_stt_worker, daemon=True).start()
+
     def on_toggle_mic(self, *_):
-        if not self.is_recording:
-            # Iniciar grabación con PipeWire
-            self.agent.tts.player.stop()
-            self.is_recording = True
-            self.b_mic.set_label("󰓛")  # Icono de stop cuadrado
-            self.b_mic.remove_css_class("lyla-btn-mic")
-            self.b_mic.add_css_class("lyla-btn-mic-active")
-            self.b_mic.set_tooltip_text("Detener grabación y enviar audio")
-            self.lbl_sub.set_text("  GRABANDO VOZ... HAZ CLIC EN '󰓛' PARA PARAR Y ENVIAR")
-            self.rec_file = self.agent.capture.start_recording()
-        else:
-            # Detener grabación y transcribir en segundo plano
-            self.is_recording = False
-            self.b_mic.set_label("")  # Icono de micrófono
-            self.b_mic.remove_css_class("lyla-btn-mic-active")
-            self.b_mic.add_css_class("lyla-btn-mic")
-            self.b_mic.set_tooltip_text("Hablar por micrófono con LYLA")
-            self.agent.capture.stop_recording()
-            self.lbl_sub.set_text("  TRANSCRIBIENDO AUDIO EN LA NUBE...")
+        self.on_start_recording()
 
-            rec_path = self.rec_file
+    def on_draw_waveform(self, _area, cr, width, height):
+        # Fondo sutil con bordes redondeados
+        cr.save()
+        radius = 8.0
+        cr.new_sub_path()
+        cr.arc(width - radius, radius, radius, -math.pi / 2, 0)
+        cr.arc(width - radius, height - radius, radius, 0, math.pi / 2)
+        cr.arc(radius, height - radius, radius, math.pi / 2, math.pi)
+        cr.arc(radius, radius, radius, math.pi, 3 * math.pi / 2)
+        cr.close_path()
+        cr.set_source_rgba(0.05, 0.08, 0.16, 0.9)
+        cr.fill_preserve()
+        cr.set_source_rgba(0.0, 0.94, 1.0, 0.35)
+        cr.set_line_width(1.0)
+        cr.stroke()
+        cr.restore()
 
-            def _stt_worker():
-                try:
-                    transcription = self.agent.stt.transcribe(rec_path) if rec_path else ""
-                    if not transcription:
-                        GLib.idle_add(
-                            lambda: self.append_console("  No se detectó voz clara en la grabación.") or False
-                        )
-                        GLib.idle_add(
-                            lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
-                        )
-                        return
-                    self.voice_enabled = True
-                    GLib.idle_add(lambda: self.process_user_input(transcription, force_speak=True) or False)
-                except Exception as e:
-                    GLib.idle_add(lambda: self.append_console(f"  Error STT: {e}") or False)
+        # Dibujar barras de onda dinámicas estilo WhatsApp / Telegram
+        bar_width = 3.5
+        bar_gap = 2.5
+        total_step = bar_width + bar_gap
+        usable_width = width - 16.0
+        if usable_width <= 0:
+            return
 
-            threading.Thread(target=_stt_worker, daemon=True).start()
+        num_bars = int(usable_width // total_step)
+        if num_bars <= 0:
+            return
+
+        start_x = 8.0 + (usable_width - (num_bars * total_step - bar_gap)) / 2.0
+        mid_y = height / 2.0
+        cr.set_line_width(bar_width)
+        cr.set_line_cap(1)  # CAIRO_LINE_CAP_ROUND
+
+        for i in range(num_bars):
+            x = start_x + i * total_step + bar_width / 2.0
+            # Simulación armónica de voz fluida
+            w1 = math.sin(self.rec_tick * 0.16 + i * 0.32) * 0.48
+            w2 = math.cos(self.rec_tick * 0.09 - i * 0.18) * 0.36
+            w3 = math.sin(self.rec_tick * 0.28 + i * 0.65) * 0.16
+            comb = abs(w1 + w2 + w3)
+            norm_h = max(0.12, min(0.88, comb))
+            bar_h = norm_h * (height - 12)
+            half_h = bar_h / 2.0
+
+            # Alternancia sutil de color 2099: cian neón con pulsos escarlata
+            if (i + self.rec_tick // 4) % 6 == 0:
+                cr.set_source_rgba(1.0, 0.165, 0.294, 0.95)
+            else:
+                cr.set_source_rgba(0.0, 0.94, 1.0, 0.88)
+
+            cr.move_to(x, mid_y - half_h)
+            cr.line_to(x, mid_y + half_h)
+            cr.stroke()
 
     def on_switch_wallpaper(self, *_):
         res = self.agent.system.cycle_wallpaper(self.wall_idx)
@@ -662,6 +812,12 @@ class LylaHudWindow(Gtk.ApplicationWindow):
     def on_tick(self):
         self.angle = (self.angle + 0.045) % (2 * math.pi)
         self.canvas.queue_draw()
+        if self.is_recording:
+            self.rec_tick += 1
+            elapsed = int(time.time() - self.rec_start_time)
+            mins, secs = divmod(elapsed, 60)
+            self.lbl_rec_time.set_text(f"{mins:02d}:{secs:02d}")
+            self.wave_canvas.queue_draw()
         return True
 
     def update_stats(self):
