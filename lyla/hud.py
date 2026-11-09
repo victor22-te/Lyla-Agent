@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# NOTE: Added voice‑mode integration (hot‑word detection, aura overlay, and listening state)
+
 """
 LYLA 2099 // HOLOGRAPHIC DESKTOP HUD WIDGET (GTK4 + Cairo)
 Interactive futuristic Spider-Man 2099 control deck, radar, voice/text chat & LLM token status for GNOME.
@@ -19,7 +22,9 @@ if str(LYLA_PROJECT_DIR) not in sys.path:
 if VENV_SITE_PACKAGES.exists() and str(VENV_SITE_PACKAGES) not in sys.path:
     sys.path.insert(0, str(VENV_SITE_PACKAGES))
 
-import gi
+from lyla.audio.hotword import HotwordListener
+from lyla.audio.capture import AudioCapture
+from lyla.audio.hotword import HotwordListener
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gtk, Gdk, GLib, Pango
@@ -339,6 +344,21 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         row_top_btns.append(self.b_status)
 
         self.b_voice_toggle = Gtk.Button(label="  Voz ON" if self.voice_enabled else "  Voz OFF")
+        # Initialize aura overlay (hidden by default)
+        self.aura_canvas = Gtk.DrawingArea()
+        self.aura_canvas.set_content_width(100)
+        self.aura_canvas.set_content_height(100)
+        self.aura_canvas.set_draw_func(self.on_draw_aura)
+        self.aura_scale = 0.8
+        self.aura_visible = False
+        # Place aura on top‑right of the window using an overlay container
+        overlay = Gtk.Overlay()
+        overlay.set_child(main_box)
+        overlay.add_overlay(self.aura_canvas)
+        self.set_child(overlay)
+        # Schedule aura animation updates
+        GLib.timeout_add(100, self.update_aura)
+
         self.b_voice_toggle.add_css_class("lyla-btn")
         self.b_voice_toggle.set_tooltip_text("Activar o desactivar respuestas por voz de LYLA")
         self.b_voice_toggle.connect("clicked", self.on_toggle_voice_mode)
