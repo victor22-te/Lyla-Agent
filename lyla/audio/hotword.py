@@ -23,7 +23,7 @@ class HotwordDetector:
         self._is_active_dialog = False
         self.temp_dir = Path("/tmp/lyla_hotword")
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        self.wake_words = ["oye lyla", "oye laila", "hola lyla", "hola laila", "hey lyla", "lyla", "laila"]
+        self.wake_words = ["oye lyla", "oye laila", "hola lyla", "hola laila", "hey lyla", "hey laila", "lyla", "laila"]
 
     def set_dialog_state(self, in_dialog: bool):
         """Si la HUD está en medio de una grabación o reproduciendo TTS, se pausa el detector."""
