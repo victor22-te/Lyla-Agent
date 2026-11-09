@@ -95,3 +95,26 @@ Para que LYLA tenga una memoria robusta, persistente y económica en tokens sin 
 ### Fase 5: Conectividad Móvil y Dispositivos (SSH / Termux / Alarmas)
 - Conexión cifrada con tu teléfono (vía SSH / Termux / KDE Connect).
 - Comandos cruzados: activar alarmas en el móvil desde la laptop, o invocar a LYLA desde el teléfono.
+
+---
+
+## 5. 🗣️ Nuevo Modo de Voz Conversacional con Hotword y Esfera Aura (2099)
+
+LYLA integra una experiencia de conversación por voz fluida inspirada en la interfaz holográfica de Spider-Man 2099 y el aura esférica viva:
+
+### 🌟 Características Principales
+1. **Activación por Voz ("Oye LYLA" / "Oye Laila")**:
+   - Detección continua y ligera en segundo plano mediante PipeWire (`pw-record`) con análisis de voz cloud (Groq Whisper / Gemini).
+   - **Zero Hardware Impact**: No requiere librerías binarias pesadas ni modelos locales que saturen la CPU o RAM.
+   - Frases soportadas: *"oye lyla"*, *"oye laila"*, *"hola lyla"*, *"hey lyla"*, *"lyla"*.
+
+2. **Esfera Aura Neuronal (Siri / 2099 Orb)**:
+   - Al activarse el modo voz, la interfaz del HUD conmuta automáticamente del chat de texto plano a la **Esfera Aura Holográfica**.
+   - Renderizada directamente con Cairo en GTK4 a 60 FPS con degradados radiales cósmicos (púrpura, azul zafiro, magenta y cian 2099) y cintas de energía que pulsan y ondulan en tiempo real al detectar sonido y habla.
+
+3. **Plática Conversacional Continua**:
+   - Entra directamente en modo escucha al escuchar el hotword.
+   - Tras enviar el audio (`[󰒊 Enviar]` o silencio), LYLA transcribe en la nube, procesa con el LLM activo y reproduce su respuesta hablada.
+   - Una vez que LYLA termina de hablar, se reactiva automáticamente el modo de escucha para responderte como una plática real continua.
+   - Puedes salir del modo voz o callar a LYLA en cualquier momento presionando la tecla **[Esc]** o el botón **[ Callar]**.
+

@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-
-# NOTE: Added voice‑mode integration (hot‑word detection, aura overlay, and listening state)
-
 """
 LYLA 2099 // HOLOGRAPHIC DESKTOP HUD WIDGET (GTK4 + Cairo)
 Interactive futuristic Spider-Man 2099 control deck, radar, voice/text chat & LLM token status for GNOME.
@@ -22,14 +19,14 @@ if str(LYLA_PROJECT_DIR) not in sys.path:
 if VENV_SITE_PACKAGES.exists() and str(VENV_SITE_PACKAGES) not in sys.path:
     sys.path.insert(0, str(VENV_SITE_PACKAGES))
 
-from lyla.audio.hotword import HotwordListener
-from lyla.audio.capture import AudioCapture
-from lyla.audio.hotword import HotwordListener
+import cairo
+import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gtk, Gdk, GLib, Pango
 
 from lyla.core.agent import LylaAgent
+from lyla.audio.hotword import HotwordDetector
 
 
 HUD_COMMANDS = [
@@ -260,6 +257,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self.rec_file = None
         self.rec_start_time = 0.0
         self.rec_tick = 0
+        self.voice_mode_aura = False
+        self.aura_tick = 0.0
 
         self.angle = 0.0
         self.prev_idle = 0
@@ -344,21 +343,6 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         row_top_btns.append(self.b_status)
 
         self.b_voice_toggle = Gtk.Button(label="  Voz ON" if self.voice_enabled else "  Voz OFF")
-        # Initialize aura overlay (hidden by default)
-        self.aura_canvas = Gtk.DrawingArea()
-        self.aura_canvas.set_content_width(100)
-        self.aura_canvas.set_content_height(100)
-        self.aura_canvas.set_draw_func(self.on_draw_aura)
-        self.aura_scale = 0.8
-        self.aura_visible = False
-        # Place aura on top‑right of the window using an overlay container
-        overlay = Gtk.Overlay()
-        overlay.set_child(main_box)
-        overlay.add_overlay(self.aura_canvas)
-        self.set_child(overlay)
-        # Schedule aura animation updates
-        GLib.timeout_add(100, self.update_aura)
-
         self.b_voice_toggle.add_css_class("lyla-btn")
         self.b_voice_toggle.set_tooltip_text("Activar o desactivar respuestas por voz de LYLA")
         self.b_voice_toggle.connect("clicked", self.on_toggle_voice_mode)
@@ -438,6 +422,25 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         scroll_dash.set_child(self.dash_box)
         self.stack.add_named(scroll_dash, "dashboard")
 
+        # Página 3: Modo de Voz - Esfera Aura Neuronal (Spider-Man 2099 / Siri Aura)
+        aura_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        aura_box.set_vexpand(True)
+        aura_box.set_hexpand(True)
+        aura_box.set_valign(Gtk.Align.CENTER)
+        aura_box.set_halign(Gtk.Align.CENTER)
+
+        self.aura_canvas = Gtk.DrawingArea()
+        self.aura_canvas.set_content_width(260)
+        self.aura_canvas.set_content_height(260)
+        self.aura_canvas.set_draw_func(self.on_draw_aura)
+        aura_box.append(self.aura_canvas)
+
+        self.lbl_aura_status = Gtk.Label(label=" LYLA ESCUCHANDO... HABLA LIBREMENTE")
+        self.lbl_aura_status.add_css_class("lyla-subtitle")
+        aura_box.append(self.lbl_aura_status)
+
+        self.stack.add_named(aura_box, "aura")
+
         # Controlador de teclado global para silenciar con Esc o cancelar grabación
         win_key_ctrl = Gtk.EventControllerKey()
         win_key_ctrl.connect("key-pressed", self.on_window_key_pressed)
@@ -513,6 +516,13 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         GLib.timeout_add(70, self.on_tick)
         GLib.timeout_add(1200, self.update_stats)
 
+        # Iniciar detector de Hotword en segundo plano ("oye lyla", "oye laila")
+        self.hotword_detector = HotwordDetector(
+            agent=self.agent,
+            on_wake=lambda: GLib.idle_add(self.on_hotword_triggered)
+        )
+        self.hotword_detector.start()
+
     def _refresh_model_badge(self):
         prov, mod = self.agent.router.get_active_model()
         v_icon = "" if self.voice_enabled else ""
@@ -587,6 +597,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
     def on_stop_voice(self, *_):
         self.agent.tts.player.stop()
+        if self.voice_mode_aura:
+            self.voice_mode_aura = False
+            self.stack.set_visible_child_name("chat")
+            if hasattr(self, "hotword_detector"):
+                self.hotword_detector.set_dialog_state(False)
         self.lbl_sub.set_text("  VOZ SILENCIADA • LISTO PARA ESCRIBIR")
 
     def on_show_status(self, *_):
@@ -711,13 +726,45 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
                 if should_speak and raw_reply:
                     GLib.idle_add(lambda: self.lbl_sub.set_text("  LYLA HABLANDO... (Clic en ' Callar' o [Esc] para detener)") or False)
+                    if self.voice_mode_aura:
+                        GLib.idle_add(lambda: self.lbl_aura_status.set_text(" LYLA HABLANDO...") or False)
                     self.agent.speak_reply(raw_reply, interactive_cli=False, force=True)
                     GLib.idle_add(lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False)
+                    # Si estamos en modo conversación continua de voz, tras responder entra de nuevo en modo escucha
+                    if self.voice_mode_aura:
+                        time.sleep(0.5)
+                        GLib.idle_add(self.start_aura_voice_mode)
+                else:
+                    if self.voice_mode_aura:
+                        GLib.idle_add(lambda: self.stack.set_visible_child_name("chat") or False)
+                        self.voice_mode_aura = False
+                        if hasattr(self, "hotword_detector"):
+                            self.hotword_detector.set_dialog_state(False)
             except Exception as e:
                 GLib.idle_add(lambda: self.append_console(f"  [Error]: {e}") or False)
                 GLib.idle_add(lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False)
+                if self.voice_mode_aura:
+                    GLib.idle_add(lambda: self.stack.set_visible_child_name("chat") or False)
+                    self.voice_mode_aura = False
+                    if hasattr(self, "hotword_detector"):
+                        self.hotword_detector.set_dialog_state(False)
 
         threading.Thread(target=_worker, daemon=True).start()
+
+    def on_hotword_triggered(self):
+        """Disparado cuando el detector escucha 'oye lyla' u 'oye laila'."""
+        self.voice_enabled = True
+        self.b_voice_toggle.set_label("  Voz ON")
+        self.start_aura_voice_mode()
+
+    def start_aura_voice_mode(self):
+        """Activa el modo de conversación con la esfera Aura (ocultando el chat de texto)."""
+        if hasattr(self, "hotword_detector"):
+            self.hotword_detector.set_dialog_state(True)
+        self.voice_mode_aura = True
+        self.stack.set_visible_child_name("aura")
+        self.lbl_aura_status.set_text(" LYLA ESCUCHANDO... HABLA LIBREMENTE")
+        self.on_start_recording()
 
     def on_start_recording(self, *_):
         self.agent.tts.player.stop()
@@ -731,6 +778,10 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
     def on_cancel_recording(self, *_):
         self.is_recording = False
+        self.voice_mode_aura = False
+        self.stack.set_visible_child_name("chat")
+        if hasattr(self, "hotword_detector"):
+            self.hotword_detector.set_dialog_state(False)
         self.bottom_stack.set_visible_child_name("normal")
         self.agent.capture.stop_recording()
         if self.rec_file and os.path.exists(self.rec_file):
@@ -746,6 +797,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self.bottom_stack.set_visible_child_name("normal")
         self.agent.capture.stop_recording()
         self.lbl_sub.set_text("  TRANSCRIBIENDO AUDIO EN LA NUBE...")
+        if self.voice_mode_aura:
+            self.lbl_aura_status.set_text("󰯊 LYLA PROCESANDO TU VOZ...")
 
         rec_path = self.rec_file
         self.rec_file = None
@@ -760,6 +813,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                     GLib.idle_add(
                         lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
                     )
+                    if self.voice_mode_aura:
+                        GLib.idle_add(lambda: self.stack.set_visible_child_name("chat") or False)
+                        self.voice_mode_aura = False
+                    if hasattr(self, "hotword_detector"):
+                        self.hotword_detector.set_dialog_state(False)
                     return
                 self.voice_enabled = True
                 GLib.idle_add(lambda: self.process_user_input(transcription, force_speak=True) or False)
@@ -768,6 +826,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                 GLib.idle_add(
                     lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
                 )
+                if self.voice_mode_aura:
+                    GLib.idle_add(lambda: self.stack.set_visible_child_name("chat") or False)
+                    self.voice_mode_aura = False
+                if hasattr(self, "hotword_detector"):
+                    self.hotword_detector.set_dialog_state(False)
 
         threading.Thread(target=_stt_worker, daemon=True).start()
 
@@ -838,6 +901,10 @@ class LylaHudWindow(Gtk.ApplicationWindow):
     def on_tick(self):
         self.angle = (self.angle + 0.045) % (2 * math.pi)
         self.canvas.queue_draw()
+        if self.voice_mode_aura:
+            self.aura_tick = (self.aura_tick + 0.07) % (2 * math.pi)
+            if hasattr(self, "aura_canvas"):
+                self.aura_canvas.queue_draw()
         if self.is_recording:
             self.rec_tick += 1
             elapsed = int(time.time() - self.rec_start_time)
@@ -845,6 +912,96 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             self.lbl_rec_time.set_text(f"{mins:02d}:{secs:02d}")
             self.wave_canvas.queue_draw()
         return True
+
+    def on_draw_aura(self, _area, cr, width, height):
+        """
+        Dibuja el Orbe / Esfera Aura Neuronal de LYLA (Spider-Man 2099 / Siri Orb).
+        Renderiza ondas de luz fluidas en degradado radial (Púrpura, Magenta, Cian 2099)
+        que reaccionan con movimiento constante según el sonido y estado de escucha.
+        """
+        cx = width / 2.0
+        cy = height / 2.0
+        base_radius = min(width, height) * 0.36
+
+        # Fondo sutil con viñeta
+        cr.save()
+
+        # Pulso armónico de respiración del aura
+        pulse = math.sin(self.aura_tick * 2.2) * 4.5 + math.cos(self.aura_tick * 1.4) * 3.0
+        active_r = base_radius + pulse
+
+        # Capa 1: Resplandor exterior difuminado (Glow)
+        rad_pat1 = cairo.RadialGradient(cx, cy, active_r * 0.4, cx, cy, active_r * 1.35)
+        rad_pat1.add_color_stop_rgba(0.0, 0.9, 0.1, 0.4, 0.45)   # Magenta/Crimson 2099
+        rad_pat1.add_color_stop_rgba(0.5, 0.2, 0.0, 0.6, 0.25)   # Púrpura profundo
+        rad_pat1.add_color_stop_rgba(1.0, 0.0, 0.0, 0.0, 0.0)    # Transparente
+        cr.set_source(rad_pat1)
+        cr.arc(cx, cy, active_r * 1.35, 0, 2 * math.pi)
+        cr.fill()
+
+        # Capa 2: Esfera base con degradado cósmico azul/púrpura
+        rad_pat2 = cairo.RadialGradient(cx - active_r * 0.25, cy - active_r * 0.25, 5, cx, cy, active_r)
+        rad_pat2.add_color_stop_rgba(0.0, 0.1, 0.2, 0.6, 0.95)   # Azul zafiro
+        rad_pat2.add_color_stop_rgba(0.5, 0.3, 0.05, 0.5, 0.95)  # Violeta
+        rad_pat2.add_color_stop_rgba(0.9, 0.05, 0.05, 0.15, 0.98)# Base oscura
+        cr.set_source(rad_pat2)
+        cr.arc(cx, cy, active_r, 0, 2 * math.pi)
+        cr.fill()
+
+        # Capa 3: Anillo de corte y borde de la esfera
+        cr.set_line_width(2.5)
+        cr.set_source_rgba(0.15, 0.2, 0.4, 0.8)
+        cr.arc(cx, cy, active_r, 0, 2 * math.pi)
+        cr.stroke()
+
+        # Capa 4: Ondas de luz entrelazadas internas (Cintas de Siri / Alchemax Aura)
+        cr.save()
+        # Recortar dibujo al interior de la esfera
+        cr.arc(cx, cy, active_r - 2.0, 0, 2 * math.pi)
+        cr.clip()
+
+        num_waves = 5
+        for w_idx in range(num_waves):
+            phase = self.aura_tick * (1.8 + w_idx * 0.4) + w_idx * (math.pi / 2.5)
+            cr.save()
+            cr.set_line_width(12.0 + w_idx * 3.5)
+            cr.set_line_cap(1)
+
+            # Paleta de colores 2099: Cian neón, Fucsia eléctrico, Blanco estelar
+            if w_idx % 3 == 0:
+                # Cian neón brillante
+                cr.set_source_rgba(0.0, 0.95, 1.0, 0.75)
+            elif w_idx % 3 == 1:
+                # Magenta / Fucsia 2099
+                cr.set_source_rgba(1.0, 0.15, 0.5, 0.70)
+            else:
+                # Blanco / Azul eléctrico brillante central
+                cr.set_source_rgba(0.85, 0.95, 1.0, 0.85)
+
+            cr.move_to(cx - active_r, cy)
+            # Curva Bézier fluida que ondula con la voz
+            c1x = cx - active_r * 0.45
+            c1y = cy + math.sin(phase) * (active_r * 0.65)
+            c2x = cx + active_r * 0.45
+            c2y = cy - math.cos(phase * 0.9) * (active_r * 0.65)
+            end_x = cx + active_r
+            end_y = cy
+
+            cr.curve_to(c1x, c1y, c2x, c2y, end_x, end_y)
+            cr.stroke()
+            cr.restore()
+
+        # Destello central brillante (Core Glow)
+        glow_pat = cairo.RadialGradient(cx, cy, 2, cx, cy, active_r * 0.45)
+        glow_pat.add_color_stop_rgba(0.0, 1.0, 1.0, 1.0, 0.9)
+        glow_pat.add_color_stop_rgba(0.4, 0.2, 0.9, 1.0, 0.4)
+        glow_pat.add_color_stop_rgba(1.0, 0.0, 0.0, 0.0, 0.0)
+        cr.set_source(glow_pat)
+        cr.arc(cx, cy, active_r * 0.45, 0, 2 * math.pi)
+        cr.fill()
+
+        cr.restore()
+        cr.restore()
 
     def update_stats(self):
         try:
