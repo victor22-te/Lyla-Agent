@@ -19,6 +19,9 @@ class SystemTools:
         self.on_alarm_trigger = on_alarm_trigger
         self.alarms: List[Dict[str, str]] = []
         self._alarm_counter = 0
+        # Último fondo aplicado (-1 = ninguno todavía). cycle_wallpaper lo usa
+        # cuando el llamador no pasa un índice, para que el ciclo avance.
+        self._wallpaper_index = -1
 
     # -------------------------------------------------------------------------
     # Telemetría de Sistema (Arch Linux)
@@ -236,11 +239,16 @@ class SystemTools:
 
         return videos + images
 
-    def cycle_wallpaper(self, current_index: int = 0) -> Dict[str, str]:
+    def cycle_wallpaper(self, current_index: Optional[int] = None) -> Dict[str, str]:
         """
         Cambia el fondo de pantalla de forma inteligente:
         - Si el objetivo es un vídeo (.mp4/.webm): configura la extensión Hanabi y la activa.
         - Si el objetivo es una imagen (.jpg/.png): desactiva Hanabi y aplica el fondo nativo de GNOME Shell.
+
+        Si no se pasa current_index, se usa el último fondo aplicado por esta
+        instancia (para que el ciclo avance). Antes el valor por defecto era 0,
+        así que cada llamada sin argumento ponía siempre el mismo fondo (#1)
+        y parecía que la tecla W no hacía nada (bug del HUD táctico).
         """
         wallpapers = self.get_available_wallpapers()
         if not wallpapers:
@@ -250,8 +258,11 @@ class SystemTools:
                 "index": 0,
             }
 
+        if current_index is None:
+            current_index = self._wallpaper_index
         next_idx = (current_index + 1) % len(wallpapers)
         target = wallpapers[next_idx]
+        self._wallpaper_index = next_idx
 
         has_gsettings = bool(shutil.which("gsettings"))
         has_gnome_ext = bool(shutil.which("gnome-extensions"))

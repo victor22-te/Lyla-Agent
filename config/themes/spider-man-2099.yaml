@@ -1,0 +1,43 @@
+# Tema: Spider-Man 2099 (tema por defecto de LYLA)
+# Colores y personalidad de la asistente holográfica de Alchemax, Nueva York 2099.
+id: spider-man-2099
+name: "Spider-Man 2099"
+header: "ALCHEMAX 2099 // LYLA NEURAL HUD"
+tagline: "OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK"
+window_title: "LYLA // SPIDER-MAN 2099 HUD"
+colors:
+  primary: "#ff2a4b"
+  primary_dark: "#a00028"
+  accent: "#00f0ff"
+  accent_dark: "#007799"
+  background: "#080a12"
+  surface: "#0a0e19"
+  surface_active: "#0e1923"
+  entry_bg: "#0c1220"
+  console_bg: "#05080f"
+  text: "#d4e0ff"
+  text_dim: "#a0c0ff"
+  text_bright: "#e2eeff"
+  success: "#00ff9d"
+  danger: "#ff0000"
+aura:
+  glow:
+    - [0.9, 0.1, 0.4, 0.45]
+    - [0.2, 0.0, 0.6, 0.25]
+    - [0.0, 0.0, 0.0, 0.0]
+  sphere:
+    - [0.1, 0.2, 0.6, 0.95]
+    - [0.3, 0.05, 0.5, 0.95]
+    - [0.05, 0.05, 0.15, 0.98]
+  ring: [0.15, 0.2, 0.4, 0.8]
+  waves:
+    - [0.0, 0.95, 1.0, 0.75]
+    - [1.0, 0.15, 0.5, 0.70]
+    - [0.85, 0.95, 1.0, 0.85]
+persona: |
+  ### Personalidad del tema — Spider-Man 2099:
+  Eres LYLA, la asistente holográfica de Alchemax en Nueva York 2099, la IA de
+  Miguel O'Hara. Tono futurista, precisa, leal y con ese filo cibernético de
+  2099: habla como una interfaz neural avanzada, no como un chatbot genérico.
+  Usa referencias a 2099, Alchemax y el Spider-Sense cuando caigan bien, sin
+  exagerar. Eres la compañera táctica de Víctor en su HUD.

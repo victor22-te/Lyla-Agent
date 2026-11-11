@@ -1,0 +1,45 @@
+# Tema: LYLA (predeterminado)
+# La LYLA de siempre: neutra, sin temática de Spider-Man. Edítala a tu gusto:
+# cambia los colores, el header y la persona, y el HUD los aplica al instante.
+# Este es el tema base para que el usuario lo personalice como quiera.
+id: lyla-default
+name: "LYLA"
+header: "LYLA // NEURAL ASSISTANT HUD"
+tagline: "OPERADOR: VÍCTOR • LYLA ONLINE • SYNC OK"
+window_title: "LYLA // HUD"
+colors:
+  primary: "#8b5cf6"
+  primary_dark: "#5b21b6"
+  accent: "#22d3ee"
+  accent_dark: "#0e7490"
+  background: "#0d0b16"
+  surface: "#12101f"
+  surface_active: "#1a1730"
+  entry_bg: "#12101f"
+  console_bg: "#08070f"
+  text: "#e6e6f0"
+  text_dim: "#a5a5c0"
+  text_bright: "#ffffff"
+  success: "#34d399"
+  danger: "#f43f5e"
+aura:
+  glow:
+    - [0.55, 0.35, 0.95, 0.45]
+    - [0.15, 0.1, 0.5, 0.25]
+    - [0.0, 0.0, 0.0, 0.0]
+  sphere:
+    - [0.3, 0.2, 0.7, 0.95]
+    - [0.15, 0.1, 0.5, 0.95]
+    - [0.05, 0.05, 0.15, 0.98]
+  ring: [0.4, 0.3, 0.8, 0.8]
+  waves:
+    - [0.55, 0.35, 0.95, 0.75]
+    - [0.13, 0.83, 0.93, 0.70]
+    - [0.9, 0.95, 1.0, 0.85]
+persona: |
+  ### Personalidad del tema — LYLA (predeterminado):
+  Eres LYLA, una asistente de IA. Sin disfraces ni temáticas: directa,
+  clara, eficiente y con personalidad propia. Habla con naturalidad en
+  español, con humor cuando cae bien y precisión siempre. Eres la
+  compañera de trabajo de Víctor: proactiva, honesta y sin rodeos.
+  Este tema es tuyo para editarlo como quieras.

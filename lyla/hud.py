@@ -51,207 +51,32 @@ HUD_COMMANDS = [
     "/wallpaper",
     "/fondo",
     "/memory",
+    "/recordar",
+    "/olvidar",
+    "/tema",
+    "/theme",
     "/voice",
     "/stop",
 ]
 
 
-CSS = b"""
-window.lyla-hud-window {
-    background-color: rgba(8, 10, 18, 0.95);
-    border: 2px solid #ff2a4b;
-    border-radius: 16px;
-}
-.lyla-title {
-    color: #ff2a4b;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 14px;
-}
-.lyla-subtitle {
-    color: #00f0ff;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-size: 11px;
-}
-.lyla-metric-label {
-    color: #d4e0ff;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 700;
-    font-size: 11.5px;
-}
-.lyla-model-badge {
-    color: #00ff9d;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 11.5px;
-}
-.lyla-btn {
-    background: linear-gradient(135deg, rgba(255,42,75,0.22) 0%, rgba(0,240,255,0.12) 100%);
-    color: #00f0ff;
-    border: 1px solid rgba(0, 240, 255, 0.55);
-    border-radius: 8px;
-    padding: 5px 9px;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 700;
-    font-size: 11px;
-}
-.lyla-btn:hover {
-    background: linear-gradient(135deg, #ff2a4b 0%, #a00028 100%);
-    color: #ffffff;
-    border-color: #00f0ff;
-}
-.lyla-btn-status {
-    background: linear-gradient(135deg, rgba(0,240,255,0.25) 0%, rgba(255,42,75,0.20) 100%);
-    color: #ffffff;
-    border: 1px solid #00f0ff;
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 11.5px;
-}
-.lyla-btn-status:hover {
-    background: linear-gradient(135deg, #00f0ff 0%, #007799 100%);
-    color: #080a12;
-}
-.lyla-btn-mic {
-    background: linear-gradient(135deg, rgba(255,42,75,0.30) 0%, rgba(160,0,40,0.35) 100%);
-    color: #ff2a4b;
-    border: 1px solid #ff2a4b;
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 15px;
-}
-.lyla-btn-mic:hover {
-    background: linear-gradient(135deg, #ff2a4b 0%, #a00028 100%);
-    color: #ffffff;
-    border-color: #00f0ff;
-}
-.lyla-btn-trash {
-    background: linear-gradient(135deg, rgba(255, 42, 75, 0.25) 0%, rgba(140, 10, 30, 0.35) 100%);
-    color: #ff2a4b;
-    border: 1px solid rgba(255, 42, 75, 0.7);
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 15px;
-}
-.lyla-btn-trash:hover {
-    background: #ff0000;
-    color: #ffffff;
-    border-color: #ff2a4b;
-}
-.lyla-btn-rec-send {
-    background: linear-gradient(135deg, rgba(0, 240, 255, 0.30) 0%, rgba(0, 255, 157, 0.35) 100%);
-    color: #00ff9d;
-    border: 1.5px solid #00ff9d;
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 15px;
-}
-.lyla-btn-rec-send:hover {
-    background: #00ff9d;
-    color: #080a12;
-    border-color: #00ff9d;
-}
-.lyla-rec-time {
-    color: #00f0ff;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 11.5px;
-}
-.lyla-btn-icon {
-    background: linear-gradient(135deg, rgba(0,240,255,0.22) 0%, rgba(255,42,75,0.18) 100%);
-    color: #00f0ff;
-    border: 1px solid rgba(0, 240, 255, 0.65);
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 15px;
-}
-.lyla-btn-icon:hover {
-    background: linear-gradient(135deg, #00f0ff 0%, #007799 100%);
-    color: #080a12;
-    border-color: #00f0ff;
-}
-.lyla-dash-card {
-    background-color: rgba(10, 14, 25, 0.88);
-    border: 1px solid rgba(0, 240, 255, 0.35);
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-}
-.lyla-dash-card-active {
-    background-color: rgba(14, 25, 35, 0.95);
-    border: 1.5px solid #00ff9d;
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-}
-.lyla-dash-title {
-    color: #00f0ff;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-weight: 800;
-    font-size: 12px;
-}
-.lyla-dash-sub {
-    color: #a0c0ff;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-size: 10.5px;
-}
-.lyla-progressbar progress {
-    background-color: #ff2a4b;
-    border-radius: 4px;
-}
-.lyla-progressbar-active progress {
-    background-color: #00ff9d;
-    border-radius: 4px;
-}
-.lyla-progressbar trough {
-    background-color: rgba(255, 255, 255, 0.12);
-    border-radius: 4px;
-    min-height: 8px;
-}
-.lyla-entry {
-    background-color: rgba(12, 18, 32, 0.95);
-    color: #00f0ff;
-    border: 1px solid rgba(0, 240, 255, 0.65);
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-size: 12px;
-}
-.lyla-console-frame {
-    background-color: rgba(5, 8, 15, 0.92);
-    border: 1px solid rgba(255, 42, 75, 0.55);
-    border-radius: 10px;
-    padding: 8px;
-}
-.lyla-console-text {
-    background-color: transparent;
-    color: #e2eeff;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-size: 11.5px;
-}
-"""
+# Los colores del HUD viven en config/themes/*.yaml y se generan con
+# lyla.core.themes.build_css(). El CSS original (tema 2099) quedó como
+# config/themes/spider-man-2099.yaml.
+from lyla.core.themes import ThemeManager
 
 
 class LylaHudWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app)
-        self.set_title("LYLA // SPIDER-MAN 2099 HUD")
+        self.agent = LylaAgent()
+        self.theme = self.agent.themes.active
+        self.set_title(self.theme.window_title)
         self.set_default_size(580, 540)
         self.set_size_request(420, 380)
         self.set_resizable(True)
         self.add_css_class("lyla-hud-window")
 
-        self.agent = LylaAgent()
         self.voice_enabled = self.agent.config.audio_enabled
         self.is_recording = False
         self.rec_file = None
@@ -277,17 +102,30 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
         # Header
         hdr = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        lbl_title = Gtk.Label(label="󱇪  ALCHEMAX 2099 // LYLA NEURAL HUD")
-        lbl_title.add_css_class("lyla-title")
-        lbl_title.set_xalign(0.0)
-        lbl_title.set_ellipsize(Pango.EllipsizeMode.END)
-        self.lbl_sub = Gtk.Label(label="OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK")
+        self.lbl_title = Gtk.Label(label=f"󱇪  {self.theme.header}")
+        self.lbl_title.add_css_class("lyla-title")
+        self.lbl_title.set_xalign(0.0)
+        self.lbl_title.set_ellipsize(Pango.EllipsizeMode.END)
+        self.lbl_sub = Gtk.Label(label=self.theme.tagline)
         self.lbl_sub.add_css_class("lyla-subtitle")
         self.lbl_sub.set_xalign(0.0)
         self.lbl_sub.set_ellipsize(Pango.EllipsizeMode.END)
-        hdr.append(lbl_title)
+        hdr.append(self.lbl_title)
         hdr.append(self.lbl_sub)
+
+        # Selector de tema: botón que abre la vista de temas (colores del HUD + personalidad de LYLA)
+        theme_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        lbl_theme = Gtk.Label(label="TEMA:")
+        lbl_theme.add_css_class("lyla-subtitle")
+        lbl_theme.set_xalign(0.0)
+        theme_row.append(lbl_theme)
+        self.theme_button = Gtk.Button(label=f"{self.theme.name} ▾")
+        self.theme_button.set_tooltip_text("Cambia los colores del HUD y la personalidad de LYLA")
+        self.theme_button.connect("clicked", self.on_theme_button_clicked)
+        theme_row.append(self.theme_button)
+        hdr.append(theme_row)
         main_box.append(hdr)
+        self._build_theme_popover()
 
         # Center area: Left Cairo Spider-Web Radar + Right Telemetry & Actions
         mid = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -522,6 +360,70 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             on_wake=lambda: GLib.idle_add(self.on_hotword_triggered)
         )
         self.hotword_detector.start()
+
+    def _build_theme_popover(self):
+        """Vista de temas: popover con un botón por tema (color + nombre; el activo en negrita)."""
+        self.theme_popover = Gtk.Popover()
+        self.theme_popover.set_parent(self.theme_button)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+        box.set_margin_start(8)
+        box.set_margin_end(8)
+        self.theme_popover.set_child(box)
+        self._theme_popover_buttons = {}
+        for theme in self.agent.themes.list_themes():
+            btn = Gtk.Button()
+            btn.set_halign(Gtk.Align.FILL)
+            label = Gtk.Label()
+            label.set_xalign(0.0)
+            label.set_use_markup(True)
+            btn.set_child(label)
+            btn.connect("clicked", self.on_theme_button_picked, theme.id)
+            box.append(btn)
+            self._theme_popover_buttons[theme.id] = (btn, label)
+        self._refresh_theme_popover()
+
+    def _refresh_theme_popover(self):
+        """Actualiza el botón y la vista de temas (punto de color + activo en negrita)."""
+        if not hasattr(self, "_theme_popover_buttons"):
+            return
+        for theme in self.agent.themes.list_themes():
+            _btn, label = self._theme_popover_buttons[theme.id]
+            name = f"<b>{theme.name}</b>" if theme.id == self.agent.themes.active_id else theme.name
+            primary = theme.colors.get("primary", "#ffffff")
+            label.set_markup(f"<span foreground='{primary}'>●</span>  {name}")
+        if hasattr(self, "theme_button"):
+            self.theme_button.set_label(f"{self.theme.name} ▾")
+
+    def on_theme_button_clicked(self, _button):
+        """Abre la vista de temas."""
+        self._refresh_theme_popover()
+        self.theme_popover.popup()
+
+    def on_theme_button_picked(self, _button, theme_id):
+        """Aplica el tema elegido en la vista de temas y la cierra."""
+        if theme_id != self.agent.themes.active_id:
+            theme = self.agent.set_theme(theme_id)
+            self.apply_theme(theme)
+        self._refresh_theme_popover()
+        self.theme_popover.popdown()
+
+    def apply_theme(self, theme):
+        """Aplica un tema en vivo: CSS, textos de cabecera y colores de dibujo."""
+        self.theme = theme
+        self.set_title(theme.window_title)
+        self.lbl_title.set_text(f"󱇪  {theme.header}")
+        self.lbl_sub.set_text(theme.tagline)
+        app = self.get_application()
+        if app is not None and hasattr(app, "reload_theme_css"):
+            app.reload_theme_css(self.agent.themes.build_css(theme))
+        self.canvas.queue_draw()
+        if hasattr(self, "aura_canvas"):
+            self.aura_canvas.queue_draw()
+        if hasattr(self, "wave_canvas"):
+            self.wave_canvas.queue_draw()
+        self._refresh_theme_popover()
 
     def _refresh_model_badge(self):
         prov, mod = self.agent.router.get_active_model()
@@ -847,9 +749,9 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         cr.arc(radius, height - radius, radius, math.pi / 2, math.pi)
         cr.arc(radius, radius, radius, math.pi, 3 * math.pi / 2)
         cr.close_path()
-        cr.set_source_rgba(0.05, 0.08, 0.16, 0.9)
+        cr.set_source_rgba(*self.theme.rgb("surface", 0.9))
         cr.fill_preserve()
-        cr.set_source_rgba(0.0, 0.94, 1.0, 0.35)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.35))
         cr.set_line_width(1.0)
         cr.stroke()
         cr.restore()
@@ -882,11 +784,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             bar_h = norm_h * (height - 12)
             half_h = bar_h / 2.0
 
-            # Alternancia sutil de color 2099: cian neón con pulsos escarlata
+            # Alternancia sutil de color del tema: acento con pulsos del color primario
             if (i + self.rec_tick // 4) % 6 == 0:
-                cr.set_source_rgba(1.0, 0.165, 0.294, 0.95)
+                cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
             else:
-                cr.set_source_rgba(0.0, 0.94, 1.0, 0.88)
+                cr.set_source_rgba(*self.theme.rgb("accent", 0.88))
 
             cr.move_to(x, mid_y - half_h)
             cr.line_to(x, mid_y + half_h)
@@ -930,27 +832,25 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         pulse = math.sin(self.aura_tick * 2.2) * 4.5 + math.cos(self.aura_tick * 1.4) * 3.0
         active_r = base_radius + pulse
 
-        # Capa 1: Resplandor exterior difuminado (Glow)
+        # Capa 1: Resplandor exterior difuminado (Glow) — colores del tema
         rad_pat1 = cairo.RadialGradient(cx, cy, active_r * 0.4, cx, cy, active_r * 1.35)
-        rad_pat1.add_color_stop_rgba(0.0, 0.9, 0.1, 0.4, 0.45)   # Magenta/Crimson 2099
-        rad_pat1.add_color_stop_rgba(0.5, 0.2, 0.0, 0.6, 0.25)   # Púrpura profundo
-        rad_pat1.add_color_stop_rgba(1.0, 0.0, 0.0, 0.0, 0.0)    # Transparente
+        for offset, stop in zip((0.0, 0.5, 1.0), self.theme.aura_stops("glow")):
+            rad_pat1.add_color_stop_rgba(offset, *stop)
         cr.set_source(rad_pat1)
         cr.arc(cx, cy, active_r * 1.35, 0, 2 * math.pi)
         cr.fill()
 
-        # Capa 2: Esfera base con degradado cósmico azul/púrpura
+        # Capa 2: Esfera base con degradado cósmico — colores del tema
         rad_pat2 = cairo.RadialGradient(cx - active_r * 0.25, cy - active_r * 0.25, 5, cx, cy, active_r)
-        rad_pat2.add_color_stop_rgba(0.0, 0.1, 0.2, 0.6, 0.95)   # Azul zafiro
-        rad_pat2.add_color_stop_rgba(0.5, 0.3, 0.05, 0.5, 0.95)  # Violeta
-        rad_pat2.add_color_stop_rgba(0.9, 0.05, 0.05, 0.15, 0.98)# Base oscura
+        for offset, stop in zip((0.0, 0.5, 0.9), self.theme.aura_stops("sphere")):
+            rad_pat2.add_color_stop_rgba(offset, *stop)
         cr.set_source(rad_pat2)
         cr.arc(cx, cy, active_r, 0, 2 * math.pi)
         cr.fill()
 
         # Capa 3: Anillo de corte y borde de la esfera
         cr.set_line_width(2.5)
-        cr.set_source_rgba(0.15, 0.2, 0.4, 0.8)
+        cr.set_source_rgba(*self.theme.aura_ring())
         cr.arc(cx, cy, active_r, 0, 2 * math.pi)
         cr.stroke()
 
@@ -967,16 +867,12 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             cr.set_line_width(12.0 + w_idx * 3.5)
             cr.set_line_cap(1)
 
-            # Paleta de colores 2099: Cian neón, Fucsia eléctrico, Blanco estelar
-            if w_idx % 3 == 0:
-                # Cian neón brillante
-                cr.set_source_rgba(0.0, 0.95, 1.0, 0.75)
-            elif w_idx % 3 == 1:
-                # Magenta / Fucsia 2099
-                cr.set_source_rgba(1.0, 0.15, 0.5, 0.70)
+            # Paleta de ondas del tema activo
+            wave_colors = self.theme.aura_stops("waves")
+            if wave_colors:
+                cr.set_source_rgba(*wave_colors[w_idx % len(wave_colors)])
             else:
-                # Blanco / Azul eléctrico brillante central
-                cr.set_source_rgba(0.85, 0.95, 1.0, 0.85)
+                cr.set_source_rgba(*self.theme.rgb("accent", 0.75))
 
             cr.move_to(cx - active_r, cy)
             # Curva Bézier fluida que ondula con la voz
@@ -1045,14 +941,14 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         cx, cy = width / 2.0, height / 2.0
         radius = min(cx, cy) - 10
 
-        # Background subtle dark circle
+        # Background subtle dark circle (color de fondo del tema)
         cr.arc(cx, cy, radius, 0, 2 * math.pi)
-        cr.set_source_rgba(0.04, 0.06, 0.12, 0.92)
+        cr.set_source_rgba(*self.theme.rgb("background", 0.92))
         cr.fill()
 
-        # Spider-Web Radial Lines (Cyan Holographic)
+        # Spider-Web Radial Lines (color de acento del tema)
         cr.set_line_width(1.0)
-        cr.set_source_rgba(0.0, 0.94, 1.0, 0.28)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.28))
         spokes = 8
         for i in range(spokes):
             a = (i * 2 * math.pi / spokes) + self.angle * 0.25
@@ -1065,23 +961,23 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             cr.arc(cx, cy, radius * r_fac, 0, 2 * math.pi)
             cr.stroke()
 
-        # Rotating Cyan Outer HUD Arc
+        # Rotating Outer HUD Arc (color de acento del tema)
         cr.set_line_width(3.0)
-        cr.set_source_rgba(0.0, 0.94, 1.0, 0.85)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.85))
         cr.arc(cx, cy, radius, self.angle, self.angle + math.pi * 0.8)
         cr.stroke()
         cr.arc(cx, cy, radius, self.angle + math.pi, self.angle + math.pi * 1.8)
         cr.stroke()
 
-        # CPU Gauge Arc (Neon Crimson #ff2a4b)
+        # CPU Gauge Arc (color primario del tema)
         cpu_angle = (self.cpu_pct / 100.0) * (2 * math.pi)
         cr.set_line_width(4.5)
-        cr.set_source_rgba(1.0, 0.165, 0.294, 0.95)
+        cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
         cr.arc(cx, cy, radius - 7, -math.pi / 2, -math.pi / 2 + cpu_angle)
         cr.stroke()
 
-        # Center Spider-Man 2099 Stylized Skull-Spider Emblem
-        cr.set_source_rgba(1.0, 0.165, 0.294, 0.95)
+        # Center Stylized Skull-Spider Emblem (color primario del tema)
+        cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
         cr.set_line_width(2.2)
 
         # Spider body (diamond/skull shape)
@@ -1094,8 +990,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         cr.close_path()
         cr.stroke()
 
-        # Glowing eyes in cyan
-        cr.set_source_rgba(0.0, 0.94, 1.0, 0.95)
+        # Glowing eyes (color de acento del tema)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.95))
         cr.move_to(cx - 6, cy - 4)
         cr.line_to(cx - 2, cy - 1)
         cr.stroke()
@@ -1103,8 +999,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         cr.line_to(cx + 2, cy - 1)
         cr.stroke()
 
-        # 8 Sharp 2099 Cyber Spider Legs
-        cr.set_source_rgba(1.0, 0.165, 0.294, 0.95)
+        # 8 Sharp Cyber Spider Legs (color primario del tema)
+        cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
         legs = [
             ((-9, -8), (-24, -26), (-18, -42)),
             ((-11, -2), (-32, -10), (-38, -26)),
@@ -1125,15 +1021,29 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 class LylaApp(Gtk.Application):
     def __init__(self):
         super().__init__(application_id="org.spiderman2099.LylaHud")
+        self._css_provider = None
+        self._themes = None
 
     def do_activate(self):
-        provider = Gtk.CssProvider()
-        provider.load_from_data(CSS)
+        # El CSS se genera con el tema activo (config/themes/*.yaml).
+        # El ThemeManager de la app solo se usa para la carga inicial; el
+        # cambio de tema en vivo lo maneja el ThemeManager del agente.
+        self._themes = ThemeManager(
+            themes_dir=Path(__file__).resolve().parent.parent / "config" / "themes",
+            settings_file=Path(__file__).resolve().parent.parent / "config" / "settings.yaml",
+        )
+        self._css_provider = Gtk.CssProvider()
+        self._css_provider.load_from_data(self._themes.build_css())
         Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gdk.Display.get_default(), self._css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
         win = LylaHudWindow(self)
         win.present()
+
+    def reload_theme_css(self, css_bytes):
+        """Recarga el CSS del HUD (llamado por la ventana al cambiar de tema)."""
+        if self._css_provider is not None:
+            self._css_provider.load_from_data(css_bytes)
 
 
 if __name__ == "__main__":
