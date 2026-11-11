@@ -11,6 +11,7 @@ El tema activo se guarda en settings.yaml bajo theme.active.
 from pathlib import Path
 from string import Template
 from typing import Dict, List, Optional
+import json
 import re
 import yaml
 
@@ -61,6 +62,20 @@ def _normalize(text: str) -> str:
 # Diseños de la V2 de Victor: futuristic (2099 holograma), electric (Miles),
 # symbiote (Venom brea viscosa), web (clásico / Tobey), orb (LYLA Apple).
 ANIMATION_STYLES = ("futuristic", "electric", "symbiote", "web", "orb")
+
+
+# Puente con el escritorio GNOME (Arch-Spidey-v1, extensión spider-hud).
+# El agente publica el tema activo en ~/.config/lyla/active-theme.json y la
+# extensión lo lee para actualizar la barra superior y el shell theme.
+# badge: texto corto de la barra superior. shell_theme: directorio del tema
+# en ~/.themes/ (generado a partir de SpiderMan-2099-Cyber por recolor).
+DESKTOP_THEME_META = {
+    "spider-man-2099": {"badge": "2099 // LYLA", "shell_theme": "SpiderMan-2099-Cyber"},
+    "miles-morales": {"badge": "MILES // LYLA", "shell_theme": "SpiderMan-Miles-Morales"},
+    "symbiote": {"badge": "SYMBIOTE // LYLA", "shell_theme": "SpiderMan-Symbiote"},
+    "spider-man-classic": {"badge": "CLASSIC // LYLA", "shell_theme": "SpiderMan-Classic"},
+    "lyla-default": {"badge": "LYLA", "shell_theme": "Lyla-Default"},
+}
 
 
 class Theme:
@@ -309,6 +324,48 @@ class ThemeManager:
         self._active_id = self._read_active_id()
         if self._active_id not in self.themes:
             self._active_id = default_id if default_id in self.themes else self._first_id()
+        # Publicar el tema activo para el escritorio GNOME (la extensión lo lee).
+        self.publish_desktop_theme()
+
+    @property
+    def desktop_theme_file(self) -> Path:
+        """Archivo que la extensión spider-hud lee para seguir el tema activo."""
+        return Path.home() / ".config" / "lyla" / "active-theme.json"
+
+    def publish_desktop_theme(self, theme: Optional[Theme] = None) -> None:
+        """Escribe el tema activo en ~/.config/lyla/active-theme.json.
+
+        La extensión spider-hud de GNOME lo lee cada 2 s y actualiza la barra
+        superior (badge), el menú y el shell theme. Si no se puede escribir
+        (p. ej. HOME no escribible), no rompe nada: solo avisa por consola.
+        """
+        theme = theme or self.active
+        if theme is None:
+            return
+        meta = DESKTOP_THEME_META.get(theme.id, {})
+        payload = {
+            "id": theme.id,
+            "name": theme.name,
+            "badge": meta.get("badge", theme.name.upper()),
+            "header": theme.header,
+            "tagline": theme.tagline,
+            "shell_theme": meta.get("shell_theme", "SpiderMan-2099-Cyber"),
+            "animation": theme.animation,
+            "colors": {
+                "primary": theme.colors.get("primary", "#ffffff"),
+                "accent": theme.colors.get("accent", "#ffffff"),
+                "background": theme.colors.get("background", "#000000"),
+                "text": theme.colors.get("text", "#ffffff"),
+            },
+        }
+        try:
+            target = self.desktop_theme_file
+            target.parent.mkdir(parents=True, exist_ok=True)
+            tmp = target.with_name(target.name + ".tmp")
+            tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(target)
+        except Exception as e:
+            print(f"[Temas] No se pudo publicar el tema de escritorio: {e}")
 
     def _load_all(self):
         if not self.themes_dir.exists():
@@ -385,6 +442,7 @@ class ThemeManager:
             raise ValueError(f"Tema no encontrado: {theme_id}")
         self._active_id = theme.id
         self._persist_active_id(theme.id)
+        self.publish_desktop_theme(theme)
         return theme
 
     def _persist_active_id(self, theme_id: str):
