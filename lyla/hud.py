@@ -5,6 +5,7 @@ Interactive futuristic Spider-Man 2099 control deck, radar, voice/text chat & LL
 """
 import math
 import os
+import random
 import subprocess
 import sys
 import threading
@@ -815,6 +816,115 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             self.wave_canvas.queue_draw()
         return True
 
+    # --- Efectos de animación por tema (Cairo) ---
+    # Cada tema define su estilo en config/themes/<id>.yaml (animation: ...).
+    # 2099 "futuristic" no añade nada: sus ondas y su radar ya son la animación.
+    # Miles "electric": rayos. Simbionte "symbiote": tentáculos.
+    # Clásico "web": telaraña estilo Tobey Maguire. Lyla "freckles": pecas.
+    def _draw_theme_fx(self, cr, cx, cy, r, tick):
+        """Efecto de animación del tema activo dentro de un círculo (cx, cy, r)."""
+        style = self.theme.animation
+        if style == "electric":
+            self._fx_electric(cr, cx, cy, r, tick)
+        elif style == "symbiote":
+            self._fx_symbiote(cr, cx, cy, r, tick)
+        elif style == "web":
+            self._fx_web(cr, cx, cy, r, tick)
+        elif style == "freckles":
+            self._fx_freckles(cr, cx, cy, r, tick)
+        # "futuristic": sin efecto extra (las ondas y el radar ya animan).
+
+    def _fx_electric(self, cr, cx, cy, r, tick):
+        """Rayos de Miles Morales: relámpagos que zigzaguean y parpadean."""
+        step = int(tick * 10)
+        rng = random.Random(1337 + step)
+        for bolt in range(3):
+            if rng.random() < 0.35:
+                continue  # a veces el rayo no se ve (parpadeo)
+            ang = rng.uniform(0, 2 * math.pi)
+            cr.move_to(cx + math.cos(ang) * r, cy + math.sin(ang) * r)
+            segs = 6
+            for s in range(1, segs + 1):
+                f = s / segs
+                bx = cx + math.cos(ang) * r * (1 - f)
+                by = cy + math.sin(ang) * r * (1 - f)
+                off = rng.uniform(-r * 0.12, r * 0.12)
+                px = bx + math.cos(ang + math.pi / 2) * off
+                py = by + math.sin(ang + math.pi / 2) * off
+                cr.line_to(px, py)
+            cr.set_line_width(2.0)
+            cr.set_line_cap(1)
+            color = "success" if bolt % 2 == 0 else "accent"
+            cr.set_source_rgba(*self.theme.rgb(color, 0.9))
+            cr.stroke()
+
+    def _fx_symbiote(self, cr, cx, cy, r, tick):
+        """Tentáculos del simbionte: curvas orgánicas que pulsan y se balancean."""
+        for i in range(4):
+            ang = (i * 2 * math.pi / 4) + math.sin(tick * 0.6 + i) * 0.25
+            length = r * (0.55 + 0.25 * math.sin(tick * 1.3 + i * 1.7))
+            x0 = cx + math.cos(ang) * r
+            y0 = cy + math.sin(ang) * r
+            wx = math.sin(tick * 2.0 + i) * r * 0.12
+            wy = math.cos(tick * 2.0 + i) * r * 0.12
+            c1x = cx + math.cos(ang) * r * 0.66 + wx
+            c1y = cy + math.sin(ang) * r * 0.66 + wy
+            x2 = cx + math.cos(ang) * length
+            y2 = cy + math.sin(ang) * length
+            cr.set_line_width(5.0)
+            cr.set_line_cap(1)
+            color = "primary" if i % 2 == 0 else "accent"
+            cr.set_source_rgba(*self.theme.rgb(color, 0.75))
+            cr.move_to(x0, y0)
+            cr.curve_to(c1x, c1y, c1x, c1y, x2, y2)
+            cr.stroke()
+
+    def _fx_web(self, cr, cx, cy, r, tick):
+        """Telaraña estilo Tobey Maguire: 12 radios + anillos que se comban."""
+        spokes = 12
+        cr.set_line_width(1.0)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.45))
+        for i in range(spokes):
+            a = (i * 2 * math.pi / spokes) + tick * 0.05
+            cr.move_to(cx, cy)
+            cr.line_to(cx + math.cos(a) * r, cy + math.sin(a) * r)
+            cr.stroke()
+        for r_fac in (0.3, 0.55, 0.8):
+            rr = r * r_fac
+            for i in range(spokes):
+                a0 = (i * 2 * math.pi / spokes) + tick * 0.05
+                a1 = ((i + 1) * 2 * math.pi / spokes) + tick * 0.05
+                x0 = cx + math.cos(a0) * rr
+                y0 = cy + math.sin(a0) * rr
+                x1 = cx + math.cos(a1) * rr
+                y1 = cy + math.sin(a1) * rr
+                am = (a0 + a1) / 2.0
+                sag = rr * 0.18
+                xm = cx + math.cos(am) * (rr - sag)
+                ym = cy + math.sin(am) * (rr - sag)
+                cr.move_to(x0, y0)
+                cr.curve_to(xm, ym, xm, ym, x1, y1)
+                cr.stroke()
+
+    def _fx_freckles(self, cr, cx, cy, r, tick):
+        """Pecas de LYLA: puntitos que aparecen y desaparecen (parpadean)."""
+        rng = random.Random(42)  # posiciones fijas; solo cambia la opacidad
+        dots = []
+        for _ in range(14):
+            ang = rng.uniform(0, 2 * math.pi)
+            dist = rng.uniform(0.15, 0.9) * r
+            size = rng.uniform(2.0, 5.5)
+            phase = rng.uniform(0, 2 * math.pi)
+            dots.append((ang, dist, size, phase))
+        for ang, dist, size, phase in dots:
+            alpha = 0.25 + 0.65 * (0.5 + 0.5 * math.sin(tick * 2.0 + phase))
+            x = cx + math.cos(ang) * dist
+            y = cy + math.sin(ang) * dist
+            color = "primary" if int(phase * 10) % 2 == 0 else "accent"
+            cr.set_source_rgba(*self.theme.rgb(color, alpha))
+            cr.arc(x, y, size, 0, 2 * math.pi)
+            cr.fill()
+
     def on_draw_aura(self, _area, cr, width, height):
         """
         Dibuja el Orbe / Esfera Aura Neuronal de LYLA (Spider-Man 2099 / Siri Orb).
@@ -887,6 +997,9 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             cr.stroke()
             cr.restore()
 
+        # Efecto de animación del tema activo dentro de la esfera
+        self._draw_theme_fx(cr, cx, cy, active_r, self.aura_tick)
+
         # Destello central brillante (Core Glow)
         glow_pat = cairo.RadialGradient(cx, cy, 2, cx, cy, active_r * 0.45)
         glow_pat.add_color_stop_rgba(0.0, 1.0, 1.0, 1.0, 0.9)
@@ -946,20 +1059,24 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         cr.set_source_rgba(*self.theme.rgb("background", 0.92))
         cr.fill()
 
-        # Spider-Web Radial Lines (color de acento del tema)
-        cr.set_line_width(1.0)
-        cr.set_source_rgba(*self.theme.rgb("accent", 0.28))
-        spokes = 8
-        for i in range(spokes):
-            a = (i * 2 * math.pi / spokes) + self.angle * 0.25
-            cr.move_to(cx, cy)
-            cr.line_to(cx + math.cos(a) * radius, cy + math.sin(a) * radius)
-            cr.stroke()
+        if self.theme.animation == "web":
+            # Telaraña estilo Tobey Maguire en lugar de radios rectos + anillos.
+            self._fx_web(cr, cx, cy, radius, self.angle)
+        else:
+            # Spider-Web Radial Lines (color de acento del tema)
+            cr.set_line_width(1.0)
+            cr.set_source_rgba(*self.theme.rgb("accent", 0.28))
+            spokes = 8
+            for i in range(spokes):
+                a = (i * 2 * math.pi / spokes) + self.angle * 0.25
+                cr.move_to(cx, cy)
+                cr.line_to(cx + math.cos(a) * radius, cy + math.sin(a) * radius)
+                cr.stroke()
 
-        # Concentric Web Rings
-        for r_fac in (0.35, 0.62, 0.88):
-            cr.arc(cx, cy, radius * r_fac, 0, 2 * math.pi)
-            cr.stroke()
+            # Concentric Web Rings
+            for r_fac in (0.35, 0.62, 0.88):
+                cr.arc(cx, cy, radius * r_fac, 0, 2 * math.pi)
+                cr.stroke()
 
         # Rotating Outer HUD Arc (color de acento del tema)
         cr.set_line_width(3.0)
@@ -1016,6 +1133,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             cr.line_to(cx + x2, cy + y2)
             cr.line_to(cx + x3, cy + y3)
             cr.stroke()
+
+        # Efecto de animación del tema activo (rayos, tentáculos o pecas).
+        # "web" ya se dibujó en lugar de los radios rectos; "futuristic" no añade nada.
+        if self.theme.animation in ("electric", "symbiote", "freckles"):
+            self._draw_theme_fx(cr, cx, cy, radius, self.angle)
 
 
 class LylaApp(Gtk.Application):

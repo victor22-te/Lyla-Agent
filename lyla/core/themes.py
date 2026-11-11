@@ -57,6 +57,10 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", no_accents.lower())
 
 
+# Estilos de animación del HUD (uno por tema, definido en su YAML).
+ANIMATION_STYLES = ("futuristic", "electric", "symbiote", "web", "freckles")
+
+
 class Theme:
     """Un tema cargado desde config/themes/<id>.yaml."""
 
@@ -66,6 +70,11 @@ class Theme:
         self.header: str = data.get("header", "")
         self.tagline: str = data.get("tagline", "")
         self.window_title: str = data.get("window_title", f"LYLA // {self.name} HUD")
+        # Estilo de animación del HUD: futuristic (2099), electric (Miles),
+        # symbiote (Venom), web (clásico / Tobey Maguire) o freckles (Lyla / Pecas).
+        # Un valor desconocido cae a "futuristic" (la animación original).
+        style = str(data.get("animation", "futuristic")).strip().lower()
+        self.animation: str = style if style in ANIMATION_STYLES else "futuristic"
         self.colors: Dict[str, str] = data.get("colors", {})
         self.aura: Dict[str, list] = data.get("aura", {})
         self.persona: str = (data.get("persona") or "").strip()

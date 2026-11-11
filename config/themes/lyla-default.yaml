@@ -7,6 +7,7 @@ name: "LYLA"
 header: "LYLA // NEURAL ASSISTANT HUD"
 tagline: "OPERADOR: VÍCTOR • LYLA ONLINE • SYNC OK"
 window_title: "LYLA // HUD"
+animation: freckles
 colors:
   primary: "#8b5cf6"
   primary_dark: "#5b21b6"

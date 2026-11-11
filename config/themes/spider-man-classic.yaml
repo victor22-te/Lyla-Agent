@@ -5,6 +5,7 @@ name: "Spider-Man Clásico"
 header: "QUEENS // LYLA FRIENDLY NEIGHBORHOOD HUD"
 tagline: "OPERADOR: VÍCTOR • QUEENS, NY • TU AMIGABLE VECINA LYLA"
 window_title: "LYLA // SPIDER-MAN HUD"
+animation: web
 colors:
   primary: "#d90429"
   primary_dark: "#8f0018"

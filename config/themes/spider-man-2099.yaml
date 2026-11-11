@@ -5,6 +5,7 @@ name: "Spider-Man 2099"
 header: "ALCHEMAX 2099 // LYLA NEURAL HUD"
 tagline: "OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK"
 window_title: "LYLA // SPIDER-MAN 2099 HUD"
+animation: futuristic
 colors:
   primary: "#ff2a4b"
   primary_dark: "#a00028"

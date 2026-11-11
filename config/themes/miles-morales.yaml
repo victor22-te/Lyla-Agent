@@ -5,6 +5,7 @@ name: "Miles Morales"
 header: "BROOKLYN // LYLA VENOM HUD"
 tagline: "OPERADOR: VÍCTOR • BROOKLYN • VENOM CHARGED"
 window_title: "LYLA // MILES MORALES HUD"
+animation: electric
 colors:
   primary: "#e62429"
   primary_dark: "#8f1013"

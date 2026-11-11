@@ -5,6 +5,7 @@ name: "Simbionte"
 header: "SYMBIOTE OVERRIDE // LYLA BLACK SUIT"
 tagline: "OPERADOR: VÍCTOR • NOSOTROS SOMOS LYLA • SYNC OK"
 window_title: "LYLA // SYMBIOTE HUD"
+animation: symbiote
 colors:
   primary: "#f0f0f0"
   primary_dark: "#9a9a9a"
