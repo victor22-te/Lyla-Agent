@@ -58,7 +58,9 @@ def _normalize(text: str) -> str:
 
 
 # Estilos de animación del HUD (uno por tema, definido en su YAML).
-ANIMATION_STYLES = ("futuristic", "electric", "symbiote", "web", "freckles")
+# Diseños de la V2 de Victor: futuristic (2099 holograma), electric (Miles),
+# symbiote (Venom brea viscosa), web (clásico / Tobey), orb (LYLA Apple).
+ANIMATION_STYLES = ("futuristic", "electric", "symbiote", "web", "orb")
 
 
 class Theme:
@@ -71,7 +73,7 @@ class Theme:
         self.tagline: str = data.get("tagline", "")
         self.window_title: str = data.get("window_title", f"LYLA // {self.name} HUD")
         # Estilo de animación del HUD: futuristic (2099), electric (Miles),
-        # symbiote (Venom), web (clásico / Tobey Maguire) o freckles (Lyla / Pecas).
+        # symbiote (Venom), web (clásico / Tobey Maguire) u orb (LYLA Apple).
         # Un valor desconocido cae a "futuristic" (la animación original).
         style = str(data.get("animation", "futuristic")).strip().lower()
         self.animation: str = style if style in ANIMATION_STYLES else "futuristic"

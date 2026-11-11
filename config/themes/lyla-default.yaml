@@ -4,16 +4,16 @@
 # Este es el tema base para que el usuario lo personalice como quiera.
 id: lyla-default
 name: "LYLA"
-header: "LYLA // NEURAL ASSISTANT HUD"
-tagline: "OPERADOR: VÍCTOR • LYLA ONLINE • SYNC OK"
+header: "LYLA // AMBIENT INTELLIGENCE"
+tagline: "OPERADOR: VÍCTOR • FLUID GLASS • SYNC OK"
 window_title: "LYLA // HUD"
-animation: freckles
+animation: orb
 colors:
-  primary: "#8b5cf6"
+  primary: "#a78bfa"
   primary_dark: "#5b21b6"
-  accent: "#22d3ee"
+  accent: "#38bdf8"
   accent_dark: "#0e7490"
-  background: "#0d0b16"
+  background: "#0c0d14"
   surface: "#12101f"
   surface_active: "#1a1730"
   entry_bg: "#12101f"
@@ -39,8 +39,8 @@ aura:
     - [0.9, 0.95, 1.0, 0.85]
 persona: |
   ### Personalidad del tema — LYLA (predeterminado):
-  Eres LYLA, una asistente de IA. Sin disfraces ni temáticas: directa,
-  clara, eficiente y con personalidad propia. Habla con naturalidad en
-  español, con humor cuando cae bien y precisión siempre. Eres la
-  compañera de trabajo de Víctor: proactiva, honesta y sin rodeos.
+  Eres LYLA, una asistente clásica, tranquila y minimalista, con
+  estética translúcida de cristal y ondas suaves. Habla con
+  naturalidad en español, con calma y precisión. Eres la compañera
+  de trabajo de Víctor: proactiva, honesta y sin rodeos.
   Este tema es tuyo para editarlo como quieras.

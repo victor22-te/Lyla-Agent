@@ -818,24 +818,72 @@ class LylaHudWindow(Gtk.ApplicationWindow):
 
     # --- Efectos de animación por tema (Cairo) ---
     # Cada tema define su estilo en config/themes/<id>.yaml (animation: ...).
-    # 2099 "futuristic" no añade nada: sus ondas y su radar ya son la animación.
-    # Miles "electric": rayos. Simbionte "symbiote": tentáculos.
-    # Clásico "web": telaraña estilo Tobey Maguire. Lyla "freckles": pecas.
+    # Diseños de la V2 de Victor (temas_de_lyla_vista_pre-V2.html):
+    # 2099 "futuristic": holograma Alchemax (scanlines + barra + glitch RGB).
+    # Miles "electric": arco voltaico fractal + anillo Tesla punteado.
+    # Simbionte "symbiote": brea ultra viscosa (masas negras con borde blanco + tendrils).
+    # Clásico "web": telaraña elástica estilo Tobey Maguire + sentido arácnido.
+    # LYLA "orb": orbe fluido sereno estilo Apple (Siri) — 3 capas + anillos.
     def _draw_theme_fx(self, cr, cx, cy, r, tick):
         """Efecto de animación del tema activo dentro de un círculo (cx, cy, r)."""
         style = self.theme.animation
-        if style == "electric":
+        if style == "futuristic":
+            self._fx_futuristic(cr, cx, cy, r, tick)
+        elif style == "electric":
             self._fx_electric(cr, cx, cy, r, tick)
         elif style == "symbiote":
             self._fx_symbiote(cr, cx, cy, r, tick)
         elif style == "web":
             self._fx_web(cr, cx, cy, r, tick)
-        elif style == "freckles":
-            self._fx_freckles(cr, cx, cy, r, tick)
-        # "futuristic": sin efecto extra (las ondas y el radar ya animan).
+        elif style == "orb":
+            self._fx_orb(cr, cx, cy, r, tick)
+        # (sin estilo válido no hay efecto extra)
+
+    def _fx_futuristic(self, cr, cx, cy, r, tick):
+        """2099: scanlines + barra de escaneo + glitch RGB ocasional."""
+        cr.save()
+        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        cr.clip()
+        # Scanlines horizontales sutiles
+        cr.set_line_width(1.0)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.06))
+        y = cy - r
+        while y < cy + r:
+            cr.move_to(cx - r, y)
+            cr.line_to(cx + r, y)
+            cr.stroke()
+            y += 4.0
+        # Barra de escaneo que baja y sube
+        scan_y = cy + math.sin(tick * 1.1) * r * 0.9
+        cr.set_line_width(3.0)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.55))
+        cr.move_to(cx - r, scan_y)
+        cr.line_to(cx + r, scan_y)
+        cr.stroke()
+        # Glitch RGB breve (salto cuántico, ~cada 2.8 s)
+        if int(tick * 4) % 11 == 5:
+            cr.set_line_width(1.5)
+            cr.set_source_rgba(*self.theme.rgb("accent", 0.8))
+            cr.arc(cx + 3, cy, r * 0.9, 0, 2 * math.pi)
+            cr.stroke()
+            cr.set_source_rgba(*self.theme.rgb("primary", 0.8))
+            cr.arc(cx - 3, cy, r * 0.9, 0, 2 * math.pi)
+            cr.stroke()
+        cr.restore()
 
     def _fx_electric(self, cr, cx, cy, r, tick):
-        """Rayos de Miles Morales: relámpagos que zigzaguean y parpadean."""
+        """Rayos de Miles Morales + anillo Tesla punteado que gira."""
+        cr.save()
+        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        cr.clip()
+        # Anillo Tesla perimetral (punteado, gira con el tiempo)
+        cr.set_line_width(1.4)
+        cr.set_dash([14, 28, 6, 18], tick * 40)
+        cr.set_source_rgba(*self.theme.rgb("accent", 0.7))
+        cr.arc(cx, cy, r * 0.96, 0, 2 * math.pi)
+        cr.stroke()
+        cr.set_dash([])
+        # Rayos fractales que zigzaguean y parpadean
         step = int(tick * 10)
         rng = random.Random(1337 + step)
         for bolt in range(3):
@@ -857,9 +905,38 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             color = "success" if bolt % 2 == 0 else "accent"
             cr.set_source_rgba(*self.theme.rgb(color, 0.9))
             cr.stroke()
+        cr.restore()
 
     def _fx_symbiote(self, cr, cx, cy, r, tick):
-        """Tentáculos del simbionte: curvas orgánicas que pulsan y se balancean."""
+        """Brea simbiótica: masas negras con borde blanco + tendrils que se estiran."""
+        cr.save()
+        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        cr.clip()
+        # Masas (núcleo + lóbulos): brea negra con borde blanco que pulsa y deriva
+        blobs = [
+            (0.0, 0.0, 0.34, 0.0),    # núcleo
+            (-0.42, -0.38, 0.24, 1.3), # lóbulo 1
+            (0.40, 0.38, 0.25, 2.1),   # lóbulo 2
+            (0.44, -0.36, 0.19, 2.9),  # lóbulo 3
+        ]
+        for bx, by, br, phase in blobs:
+            dx = math.sin(tick * 0.7 + phase) * r * 0.10
+            dy = math.cos(tick * 0.6 + phase) * r * 0.10
+            scale = 1.0 + 0.16 * math.sin(tick * 1.1 + phase)
+            x = cx + bx * r + dx
+            y = cy + by * r + dy
+            cr.save()
+            cr.translate(x, y)
+            cr.scale(scale * (1.0 + 0.08 * math.sin(tick + phase)),
+                     scale * (1.0 - 0.08 * math.sin(tick + phase)))
+            cr.set_source_rgba(*self.theme.rgb("background", 0.98))
+            cr.arc(0, 0, br * r, 0, 2 * math.pi)
+            cr.fill_preserve()
+            cr.set_line_width(2.5)
+            cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
+            cr.stroke()
+            cr.restore()
+        # Tendrils: curvas orgánicas que pulsan y se balancean
         for i in range(4):
             ang = (i * 2 * math.pi / 4) + math.sin(tick * 0.6 + i) * 0.25
             length = r * (0.55 + 0.25 * math.sin(tick * 1.3 + i * 1.7))
@@ -878,9 +955,16 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             cr.move_to(x0, y0)
             cr.curve_to(c1x, c1y, c1x, c1y, x2, y2)
             cr.stroke()
+        cr.restore()
 
     def _fx_web(self, cr, cx, cy, r, tick):
-        """Telaraña estilo Tobey Maguire: 12 radios + anillos que se comban."""
+        """Telaraña estilo Tobey Maguire: 12 radios + anillos combados + sentido arácnido."""
+        # La telaraña respira (escala elástica)
+        wobble = 1.0 + 0.04 * math.sin(tick * 2.0)
+        cr.save()
+        cr.translate(cx, cy)
+        cr.scale(wobble, wobble)
+        cr.translate(-cx, -cy)
         spokes = 12
         cr.set_line_width(1.0)
         cr.set_source_rgba(*self.theme.rgb("accent", 0.45))
@@ -905,25 +989,60 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                 cr.move_to(x0, y0)
                 cr.curve_to(xm, ym, xm, ym, x1, y1)
                 cr.stroke()
+        cr.restore()
+        # Sentido arácnido: onda en zig-zag que se expande y se desvanece
+        period = 2.4
+        phase = (tick % period) / period
+        alpha = 0.95 * (1.0 - phase)
+        if alpha > 0.02:
+            scale = 0.35 + 0.77 * phase
+            cr.save()
+            cr.set_line_width(1.6)
+            cr.set_source_rgba(*self.theme.rgb("primary", alpha))
+            pts = []
+            for i in range(16):
+                ang = i * 2 * math.pi / 16
+                rr = r * scale * (0.92 if i % 2 == 0 else 0.78)
+                pts.append((cx + math.cos(ang) * rr, cy + math.sin(ang) * rr))
+            cr.move_to(*pts[0])
+            for x, y in pts[1:]:
+                cr.line_to(x, y)
+            cr.close_path()
+            cr.stroke()
+            cr.restore()
 
-    def _fx_freckles(self, cr, cx, cy, r, tick):
-        """Pecas de LYLA: puntitos que aparecen y desaparecen (parpadean)."""
-        rng = random.Random(42)  # posiciones fijas; solo cambia la opacidad
-        dots = []
-        for _ in range(14):
-            ang = rng.uniform(0, 2 * math.pi)
-            dist = rng.uniform(0.15, 0.9) * r
-            size = rng.uniform(2.0, 5.5)
-            phase = rng.uniform(0, 2 * math.pi)
-            dots.append((ang, dist, size, phase))
-        for ang, dist, size, phase in dots:
-            alpha = 0.25 + 0.65 * (0.5 + 0.5 * math.sin(tick * 2.0 + phase))
-            x = cx + math.cos(ang) * dist
-            y = cy + math.sin(ang) * dist
-            color = "primary" if int(phase * 10) % 2 == 0 else "accent"
-            cr.set_source_rgba(*self.theme.rgb(color, alpha))
-            cr.arc(x, y, size, 0, 2 * math.pi)
+    def _fx_orb(self, cr, cx, cy, r, tick):
+        """Orbe fluido sereno estilo Apple (Siri): 3 capas que respiran + anillos."""
+        cr.save()
+        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        cr.clip()
+        # 3 capas suaves (lavanda, azul, perla) que orbitan y respiran
+        layers = [
+            ("primary", 0.36, 0.0, 1.0),      # lavanda
+            ("accent", 0.32, 1.7, 1.25),      # azul
+            ("text_bright", 0.24, 2.9, 0.9),  # perla
+        ]
+        for color, rad, phase, speed in layers:
+            ang = tick * 0.45 * speed + phase
+            ox = math.cos(ang) * r * 0.18
+            oy = math.sin(ang) * r * 0.18
+            rr = r * rad * (1.0 + 0.10 * math.sin(tick * 0.8 + phase))
+            grad = cairo.RadialGradient(cx + ox, cy + oy, 2, cx + ox, cy + oy, rr)
+            grad.add_color_stop_rgba(0.0, *self.theme.rgb(color, 0.75))
+            grad.add_color_stop_rgba(0.6, *self.theme.rgb(color, 0.30))
+            grad.add_color_stop_rgba(1.0, *self.theme.rgb(color, 0.0))
+            cr.set_source(grad)
+            cr.arc(cx + ox, cy + oy, rr, 0, 2 * math.pi)
             cr.fill()
+        # 2 anillos finos que giran en sentido contrario
+        for i, (rr_fac, speed, alpha) in enumerate([(0.78, 0.3, 0.35), (0.68, -0.4, 0.30)]):
+            cr.set_line_width(1.0)
+            cr.set_dash([3, 6], tick * 30 * speed)
+            cr.set_source_rgba(*self.theme.rgb("text_bright" if i == 0 else "accent", alpha))
+            cr.arc(cx, cy, r * rr_fac, 0, 2 * math.pi)
+            cr.stroke()
+        cr.set_dash([])
+        cr.restore()
 
     def on_draw_aura(self, _area, cr, width, height):
         """
@@ -1134,9 +1253,9 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             cr.line_to(cx + x3, cy + y3)
             cr.stroke()
 
-        # Efecto de animación del tema activo (rayos, tentáculos o pecas).
-        # "web" ya se dibujó en lugar de los radios rectos; "futuristic" no añade nada.
-        if self.theme.animation in ("electric", "symbiote", "freckles"):
+        # Efecto de animación del tema activo (holograma, rayos, brea u orbe).
+        # "web" ya se dibujó en lugar de los radios rectos.
+        if self.theme.animation in ("electric", "symbiote", "orb", "futuristic"):
             self._draw_theme_fx(cr, cx, cy, radius, self.angle)
 
 
