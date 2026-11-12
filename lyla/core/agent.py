@@ -338,7 +338,7 @@ class LylaAgent:
                 lines.append(f"  {mark} [{idx}] {opt['provider']} → {opt['model']}{tag}")
             return {"text": "\n".join(lines), "speak": False, "voice_enabled": voice_enabled}
 
-        if cmd in ["/tema", "/theme", "tema", "theme"]:
+        if cmd in ["/tema", "/temas", "/theme", "/themes", "tema", "temas", "theme", "themes"]:
             if not cmd_arg:
                 lines = ["Temas de LYLA:"]
                 for t in self.themes.list_themes():
