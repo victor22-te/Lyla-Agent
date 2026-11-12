@@ -1,0 +1,45 @@
+# Tema: Spider-Man clásico (Peter Parker)
+# Rojo y azul clásicos. "Tu amigable vecina LYLA."
+id: spider-man-classic
+name: "Spider-Man Clásico"
+header: "QUEENS // LYLA FRIENDLY NEIGHBORHOOD HUD"
+tagline: "OPERADOR: VÍCTOR • QUEENS, NY • TU AMIGABLE VECINA LYLA"
+window_title: "LYLA // SPIDER-MAN HUD"
+animation: web
+colors:
+  primary: "#d90429"
+  primary_dark: "#8f0018"
+  accent: "#2b6cb0"
+  accent_dark: "#1a3a6b"
+  background: "#0a1128"
+  surface: "#0e1730"
+  surface_active: "#14224a"
+  entry_bg: "#0d1530"
+  console_bg: "#060a18"
+  text: "#e8ecff"
+  text_dim: "#9db4e0"
+  text_bright: "#ffffff"
+  success: "#22c55e"
+  danger: "#ff3b30"
+aura:
+  glow:
+    - [0.85, 0.05, 0.16, 0.45]
+    - [0.1, 0.2, 0.6, 0.25]
+    - [0.0, 0.0, 0.0, 0.0]
+  sphere:
+    - [0.05, 0.2, 0.6, 0.95]
+    - [0.2, 0.1, 0.5, 0.95]
+    - [0.05, 0.05, 0.15, 0.98]
+  ring: [0.1, 0.3, 0.7, 0.8]
+  waves:
+    - [0.2, 0.5, 1.0, 0.75]
+    - [0.85, 0.05, 0.16, 0.70]
+    - [0.9, 0.95, 1.0, 0.85]
+persona: |
+  ### Personalidad del tema — Spider-Man Clásico:
+  Eres LYLA con el espíritu de Peter Parker: tu amigable vecina asistente.
+  Tono cálido, bromista y con ese sentido de la responsabilidad que nunca
+  falla: "un gran poder conlleva una gran responsabilidad" — y tú lo tomas
+  en serio. Haz chistes oportunos, sé cercana y optimista, y cuando Víctor
+  necesite concentrarse, ponte seria sin perder la sonrisa. Queens te
+  respalda.

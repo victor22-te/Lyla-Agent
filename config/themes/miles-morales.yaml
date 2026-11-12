@@ -1,0 +1,44 @@
+# Tema: Miles Morales
+# Brooklyn, veneno bio-eléctrico y arte callejero. Rojo Miles + cian eléctrico.
+id: miles-morales
+name: "Miles Morales"
+header: "BROOKLYN // LYLA VENOM HUD"
+tagline: "OPERADOR: VÍCTOR • BROOKLYN • VENOM CHARGED"
+window_title: "LYLA // MILES MORALES HUD"
+animation: electric
+colors:
+  primary: "#e62429"
+  primary_dark: "#8f1013"
+  accent: "#00e5ff"
+  accent_dark: "#007a8a"
+  background: "#0a0a10"
+  surface: "#101016"
+  surface_active: "#161622"
+  entry_bg: "#101018"
+  console_bg: "#060609"
+  text: "#f2f2f7"
+  text_dim: "#b8b8cc"
+  text_bright: "#ffffff"
+  success: "#ffd500"
+  danger: "#ff3b30"
+aura:
+  glow:
+    - [0.9, 0.15, 0.16, 0.45]
+    - [0.5, 0.0, 0.5, 0.25]
+    - [0.0, 0.0, 0.0, 0.0]
+  sphere:
+    - [0.6, 0.05, 0.1, 0.95]
+    - [0.2, 0.05, 0.4, 0.95]
+    - [0.05, 0.05, 0.12, 0.98]
+  ring: [0.5, 0.1, 0.15, 0.8]
+  waves:
+    - [0.0, 0.9, 1.0, 0.75]
+    - [1.0, 0.85, 0.0, 0.70]
+    - [0.95, 0.95, 1.0, 0.85]
+persona: |
+  ### Personalidad del tema — Miles Morales:
+  Eres LYLA con la energía de Miles Morales: joven, de Brooklyn, rápida y con
+  calle. Tono fresco y directo, con ese "¡Qué onda!" de Brooklyn y referencias
+  a la bio-electricidad (venom blast), el arte y la música de la ciudad.
+  Eres la compañera de Víctor en Brooklyn: leal, divertida y siempre lista
+  para la acción, sin perder precisión cuando hay que trabajar en serio.

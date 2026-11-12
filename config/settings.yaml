@@ -32,3 +32,6 @@ memory:
   declarative_path: "config"
   episodic_db_path: "lyla_memory.db"
   max_session_history: 20
+
+theme:
+  active: spider-man-2099

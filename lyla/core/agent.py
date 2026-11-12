@@ -1,7 +1,10 @@
 import re
+import threading
 from typing import Optional
 from .config import Config
+from .themes import ThemeManager
 from .tracker import ResourceTracker
+from ..memory.embeddings import GeminiEmbedder
 from ..memory.manager import MemoryManager
 from ..providers.router import LLMRouter
 from ..audio.tts import CloudTTS
@@ -19,10 +22,17 @@ class LylaAgent:
     def __init__(self):
         self.config = Config()
         self.tracker = ResourceTracker(db_path=self.config.episodic_db_path)
+        self.embedder = GeminiEmbedder(api_key=self.config.gemini_api_key)
+        self.themes = ThemeManager(
+            themes_dir=self.config.themes_dir,
+            settings_file=self.config.settings_file,
+            default_id=self.config.theme_id,
+        )
         self.memory = MemoryManager(
             config_dir=self.config.declarative_path,
             db_path=self.config.episodic_db_path,
-            max_turns=self.config.max_session_history
+            max_turns=self.config.max_session_history,
+            embedder=self.embedder,
         )
         self.router = LLMRouter(self.config, self.tracker)
         self.tts = CloudTTS(voice=self.config.tts_voice, output_dir=self.config.temp_audio_dir)
@@ -76,7 +86,11 @@ class LylaAgent:
         4. Registra en memoria de sesión y detecta si hay que guardar un recuerdo o evento.
         5. Reproduce respuesta por voz si voice_reply está activo.
         """
-        system_prompt = self.memory.build_system_prompt(user_text) + self._build_runtime_context()
+        system_prompt = (
+            self.memory.build_system_prompt(user_text)
+            + self.themes.persona_prompt()
+            + self._build_runtime_context()
+        )
         history = self.memory.session.get_history()
 
         # Generar respuesta con LLM
@@ -104,10 +118,31 @@ class LylaAgent:
         # Detectar si Víctor compartió un hecho importante para guardarlo en Capa 2 (SQLite)
         self._auto_detect_memory(user_text, reply_text)
 
+        # Consolidación automática cada N turnos (extrae hechos duraderos con el
+        # LLM en segundo plano, sin retrasar la respuesta).
+        if self.memory.needs_consolidation():
+            threading.Thread(target=self._consolidate_session_safe, daemon=True).start()
+
         # Reproducir voz si está habilitado
         if voice_reply and self.config.audio_enabled:
             self.speak_reply(reply_text)
 
+        return reply_text
+
+    def _consolidate_session_safe(self):
+        """Consolidación automática en segundo plano (nunca rompe la conversación)."""
+        try:
+            self.memory.consolidate_session(generate_fn=self._extract_memories_with_llm)
+        except Exception as e:
+            print(f"[Memoria] Consolidación automática falló (se reintenta luego): {e}")
+
+    def _extract_memories_with_llm(self, system_prompt: str, transcript: str) -> str:
+        """Llama al LLM para extraer recuerdos de una transcripción. Devuelve el JSON."""
+        reply_text, _provider = self.router.generate(
+            system_prompt=system_prompt,
+            history=[],
+            user_message=transcript,
+        )
         return reply_text
 
     def speak_reply(self, reply_text: str, interactive_cli: bool = True, force: bool = False):
@@ -245,6 +280,9 @@ class LylaAgent:
                 " • /mobile [mensaje]         : Ping al teléfono vía KDE Connect\n"
                 " • /wallpaper | /fondo        : Cambia entre fondos animados (Hanabi) y estáticos\n"
                 " • /memory                   : Ver recuerdos guardados en SQLite\n"
+                " • /recordar <hecho>         : Guarda un hecho en memoria episódica\n"
+                " • /olvidar <id o texto>     : Borra recuerdos que coincidan\n"
+                " • /tema [nombre]            : Ver/cambiar tema del HUD y personalidad de LYLA\n"
                 " • /voice                    : Activa/desactiva respuestas por voz\n"
                 " • /stop | /shh              : Silencia la voz de LYLA inmediatamente"
             )
@@ -299,6 +337,45 @@ class LylaAgent:
                 tag = " (ACTIVO)" if is_act else ""
                 lines.append(f"  {mark} [{idx}] {opt['provider']} → {opt['model']}{tag}")
             return {"text": "\n".join(lines), "speak": False, "voice_enabled": voice_enabled}
+
+        if cmd in ["/tema", "/theme", "tema", "theme"]:
+            if not cmd_arg:
+                lines = ["Temas de LYLA:"]
+                for t in self.themes.list_themes():
+                    mark = "●" if t.id == self.themes.active_id else " "
+                    lines.append(f"  {mark} [{t.id}] {t.name}")
+                lines.append("\nUsa: /tema <id o nombre> (ej. /tema miles)")
+                return {"text": "\n".join(lines), "speak": False, "voice_enabled": voice_enabled}
+            theme = self.themes.find(cmd_arg)
+            if theme is None:
+                return {"text": f"No encontré el tema '{cmd_arg}'. Usa /tema para ver la lista.", "speak": False, "voice_enabled": voice_enabled}
+            self.set_theme(theme.id)
+            return {"text": f"Tema cambiado a: {theme.name} ({theme.id})", "speak": False, "voice_enabled": voice_enabled}
+
+        if cmd in ["/recordar", "/remember", "recordar", "remember"]:
+            if not cmd_arg:
+                return {"text": "󰍛  Uso: /recordar <hecho> (ej. /recordar mi café favorito es el americano)", "speak": False, "voice_enabled": voice_enabled}
+            mem_id = self.memory.consolidate_memory(
+                category="fact",
+                summary=cmd_arg,
+                details=f"Guardado explícito con /recordar: {cmd_arg}",
+                tags="recuerdo",
+                importance=4,
+            )
+            return {"text": f"󰍛  Guardado en memoria episódica (#{mem_id}): '{cmd_arg}'", "speak": False, "voice_enabled": voice_enabled}
+
+        if cmd in ["/olvidar", "/forget", "olvidar", "forget"]:
+            if not cmd_arg:
+                return {"text": "󰍛  Uso: /olvidar <id o texto> (ej. /olvidar 12 o /olvidar café)", "speak": False, "voice_enabled": voice_enabled}
+            deleted = []
+            if cmd_arg.strip().isdigit():
+                if self.memory.episodic.delete_memory(int(cmd_arg.strip())):
+                    deleted = [int(cmd_arg.strip())]
+            else:
+                deleted = self.memory.episodic.delete_by_query(cmd_arg, limit=5)
+            if not deleted:
+                return {"text": f"󰍛  No encontré recuerdos con '{cmd_arg}' para olvidar.", "speak": False, "voice_enabled": voice_enabled}
+            return {"text": f"󰍛  Olvidado(s) {len(deleted)} recuerdo(s): #{', #'.join(str(d) for d in deleted)}", "speak": False, "voice_enabled": voice_enabled}
 
         if cmd == "/memory":
             memories = self.memory.episodic.get_recent_memories(limit=8)
@@ -378,27 +455,47 @@ class LylaAgent:
             "voice_enabled": voice_enabled,
         }
 
+    def set_theme(self, theme_id: str):
+        """Cambia el tema activo de LYLA (colores del HUD + personalidad)."""
+        return self.themes.set_active(theme_id)
+
+    # Patrones que disparan un guardado inmediato en memoria episódica.
+    # (prefijos, categoría, importancia, recortar_el_prefijo)
+    _MEMORY_PATTERNS = [
+        (["recuerda que", "anota que", "no olvides que", "guarda que", "apunta que", "ten en cuenta que"], "fact", 4, True),
+        (["prefiero", "me gusta", "me encanta", "no me gusta", "odio"], "preference", 3, False),
+        (["mi proyecto es", "mi proyecto se llama", "estoy trabajando en"], "project", 3, False),
+        (["mi cumpleaños es", "mi cumple es", "nací el"], "fact", 5, False),
+        (["trabajo en", "estudio en", "vivo en"], "fact", 3, False),
+        (["decidí", "decidimos", "quedamos en", "acordamos"], "decision", 3, False),
+    ]
+
     def _auto_detect_memory(self, user_text: str, reply_text: str):
         """
-        Detecta patrones clave para consolidar en memoria episódica automáticamente
-        (e.g., 'recuerda que...', 'mi proyecto es...', 'prefiero...').
+        Detecta patrones clave para consolidar en memoria episódica automáticamente.
+        Antes solo reaccionaba a 'recuerda que / anota que / no olvides que';
+        ahora también detecta preferencias, proyectos, decisiones y datos personales.
+        La consolidación profunda (todo lo demás) la hace el LLM cada N turnos.
         """
         user_lower = user_text.lower()
-        if "recuerda que" in user_lower or "anota que" in user_lower or "no olvides que" in user_lower:
-            fact = user_text
-            for prefix in ["recuerda que", "anota que", "no olvides que"]:
+        for prefixes, category, importance, strip_prefix in self._MEMORY_PATTERNS:
+            for prefix in prefixes:
                 if prefix in user_lower:
-                    idx = user_lower.find(prefix) + len(prefix)
-                    fact = user_text[idx:].strip()
-                    break
-            self.memory.consolidate_memory(
-                category="fact",
-                summary=fact,
-                details=f"Petición directa de Víctor: {user_text}",
-                tags="recuerdo,preferencia",
-                importance=4
-            )
-            print(f"\n󰍛  [Memoria Sólida] Se ha guardado en SQLite: '{fact}'")
+                    fact = user_text
+                    if strip_prefix:
+                        idx = user_lower.find(prefix) + len(prefix)
+                        fact = user_text[idx:].strip()
+                    if not fact:
+                        return
+                    self.memory.consolidate_memory(
+                        category=category,
+                        summary=fact,
+                        details=f"Petición directa de Víctor: {user_text}",
+                        tags="recuerdo,preferencia" if category in ("fact", "preference") else "recuerdo",
+                        importance=importance,
+                    )
+                    print(f"\n󰍛  [Memoria Sólida] Se ha guardado en SQLite: '{fact}'")
+                    return
 
     def remember(self, category: str, summary: str, details: str = "", tags: str = "", importance: int = 1):
         """Método explícito para almacenar un hecho en la memoria episódica."""

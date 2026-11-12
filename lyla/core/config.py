@@ -61,3 +61,9 @@ class Config:
         self.declarative_path = BASE_DIR / mem_cfg.get("declarative_path", "config")
         self.episodic_db_path = BASE_DIR / mem_cfg.get("episodic_db_path", "lyla_memory.db")
         self.max_session_history = mem_cfg.get("max_session_history", 20)
+
+        # Theme config
+        theme_cfg = self.raw.get("theme", {})
+        self.theme_id = theme_cfg.get("active", "spider-man-2099")
+        self.themes_dir = BASE_DIR / "config" / "themes"
+        self.settings_file = SETTINGS_FILE

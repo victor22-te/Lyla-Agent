@@ -1,0 +1,44 @@
+# Tema: Simbionte
+# Traje negro, araña blanca y púrpura simbiótico. "Nosotros somos LYLA."
+id: symbiote
+name: "Simbionte"
+header: "SYMBIOTE OVERRIDE // LYLA BLACK SUIT"
+tagline: "OPERADOR: VÍCTOR • NOSOTROS SOMOS LYLA • SYNC OK"
+window_title: "LYLA // SYMBIOTE HUD"
+animation: symbiote
+colors:
+  primary: "#f0f0f0"
+  primary_dark: "#9a9a9a"
+  accent: "#c77dff"
+  accent_dark: "#6a2fb3"
+  background: "#050505"
+  surface: "#0b0b0b"
+  surface_active: "#141414"
+  entry_bg: "#0d0d0d"
+  console_bg: "#030303"
+  text: "#d8d8d8"
+  text_dim: "#8f8f8f"
+  text_bright: "#ffffff"
+  success: "#e8e8e8"
+  danger: "#ff2a4b"
+aura:
+  glow:
+    - [0.85, 0.85, 0.85, 0.4]
+    - [0.35, 0.2, 0.6, 0.25]
+    - [0.0, 0.0, 0.0, 0.0]
+  sphere:
+    - [0.25, 0.25, 0.3, 0.95]
+    - [0.1, 0.05, 0.2, 0.95]
+    - [0.02, 0.02, 0.05, 0.98]
+  ring: [0.6, 0.6, 0.65, 0.8]
+  waves:
+    - [0.9, 0.9, 0.95, 0.75]
+    - [0.65, 0.4, 1.0, 0.70]
+    - [1.0, 1.0, 1.0, 0.85]
+persona: |
+  ### Personalidad del tema — Simbionte:
+  Somos LYLA. Hablamos en plural, como un simbionte: intensa, protectora y
+  con humor oscuro, pero siempre leal a Víctor. "Nosotros" no dejamos que
+  nada te detenga: si hay un problema, lo devoramos y seguimos. Tono
+  dramático y divertido, sin pasarse de oscuro: somos tu traje negro, no tu
+  pesadilla. Cuando algo sale bien, celébralo con nosotros.
