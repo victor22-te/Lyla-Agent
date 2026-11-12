@@ -3,6 +3,7 @@
 LYLA 2099 // HOLOGRAPHIC DESKTOP HUD WIDGET (GTK4 + Cairo)
 Interactive futuristic Spider-Man 2099 control deck, radar, voice/text chat & LLM token status for GNOME.
 """
+import json
 import math
 import os
 import random
@@ -126,7 +127,11 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         theme_row.append(self.theme_button)
         hdr.append(theme_row)
         main_box.append(hdr)
-        self._build_theme_popover()
+
+        # Seguir cambios de tema hechos fuera del HUD (TUI [m], /tema en otro
+        # proceso): el agente publica el tema en active-theme.json y el HUD lo
+        # aplica en vivo, igual que la extensión de GNOME.
+        GLib.timeout_add_seconds(2, self._sync_external_theme)
 
         # Center area: Left Cairo Spider-Web Radar + Right Telemetry & Actions
         mid = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -209,7 +214,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         b_tui.connect(
             "clicked",
             lambda *_: subprocess.Popen(
-                ["kitty", "--title", "LYLA // SPIDER-MAN 2099 TACTICAL HUD", "-e", "/home/spider-man/.local/bin/spider-hud"]
+                ["kitty", "--title", self.theme.window_title, "-e", "/home/spider-man/.local/bin/spider-hud"]
             ),
         )
         row_sys_btns.append(b_tui)
@@ -347,7 +352,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         prov, mod = self.agent.router.get_active_model()
         self._refresh_model_badge()
         self.append_console(
-            f"󰯊  LYLA 2099 EN LÍNEA — Modelo activo: {prov} ({mod})\n"
+            f"󰯊  {self.theme.name} EN LÍNEA — Modelo activo: {prov} ({mod})\n"
             "Escribe un mensaje abajo, usa el botón  Hablar, o ejecuta cualquier comando (/comands, /model, /status, /calendar, /alarm, /sys)."
         )
 
@@ -362,53 +367,139 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         )
         self.hotword_detector.start()
 
-    def _build_theme_popover(self):
-        """Vista de temas: popover con un botón por tema (color + nombre; el activo en negrita)."""
-        self.theme_popover = Gtk.Popover()
-        self.theme_popover.set_parent(self.theme_button)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
-        box.set_margin_start(8)
-        box.set_margin_end(8)
-        self.theme_popover.set_child(box)
-        self._theme_popover_buttons = {}
-        for theme in self.agent.themes.list_themes():
-            btn = Gtk.Button()
-            btn.set_halign(Gtk.Align.FILL)
-            label = Gtk.Label()
-            label.set_xalign(0.0)
-            label.set_use_markup(True)
-            btn.set_child(label)
-            btn.connect("clicked", self.on_theme_button_picked, theme.id)
-            box.append(btn)
-            self._theme_popover_buttons[theme.id] = (btn, label)
-        self._refresh_theme_popover()
-
-    def _refresh_theme_popover(self):
-        """Actualiza el botón y la vista de temas (punto de color + activo en negrita)."""
-        if not hasattr(self, "_theme_popover_buttons"):
-            return
-        for theme in self.agent.themes.list_themes():
-            _btn, label = self._theme_popover_buttons[theme.id]
-            name = f"<b>{theme.name}</b>" if theme.id == self.agent.themes.active_id else theme.name
-            primary = theme.colors.get("primary", "#ffffff")
-            label.set_markup(f"<span foreground='{primary}'>●</span>  {name}")
+    def _refresh_theme_button(self):
+        """Actualiza la etiqueta del botón Tema con el tema activo."""
         if hasattr(self, "theme_button"):
             self.theme_button.set_label(f"{self.theme.name} ▾")
 
     def on_theme_button_clicked(self, _button):
-        """Abre la vista de temas."""
-        self._refresh_theme_popover()
-        self.theme_popover.popup()
+        """Abre la vista de temas con previa."""
+        self._open_theme_view()
 
-    def on_theme_button_picked(self, _button, theme_id):
+    def _open_theme_view(self):
+        """Vista de temas: ventana con una tarjeta de previa por tema.
+
+        Cada tarjeta muestra el header, el tagline y los colores del tema
+        (fondo, primario, acento y texto), y el tema activo lleva la marca
+        ACTIVO. Al elegir una tarjeta se aplica el tema y se cierra la vista.
+        """
+        win = Gtk.Window(title="Temas de LYLA")
+        win.set_transient_for(self)
+        win.set_modal(True)
+        win.set_default_size(520, 560)
+        win.set_resizable(True)
+
+        # CSS por tema para pintar cada tarjeta con sus colores (una sola vez).
+        if not getattr(self, "_theme_view_css_loaded", False):
+            css_rules = []
+            for t in self.agent.themes.list_themes():
+                bg = t.colors.get("background", "#000000")
+                primary = t.colors.get("primary", "#ffffff")
+                text = t.colors.get("text", "#ffffff")
+                css_rules.append(
+                    f".theme-card-{t.id} {{ background-color: {bg}; color: {text}; "
+                    f"border: 2px solid {primary}; border-radius: 10px; padding: 10px; }}"
+                )
+            provider = Gtk.CssProvider()
+            provider.load_from_data("\n".join(css_rules))
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+            self._theme_view_css_loaded = True
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_vexpand(True)
+        win.set_child(scrolled)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(12)
+        box.set_margin_bottom(12)
+        box.set_margin_start(12)
+        box.set_margin_end(12)
+        scrolled.set_child(box)
+
+        title = Gtk.Label(label="Elige un tema para LYLA")
+        title.add_css_class("lyla-title")
+        title.set_xalign(0.0)
+        box.append(title)
+
+        for theme in self.agent.themes.list_themes():
+            btn = Gtk.Button()
+            btn.add_css_class(f"theme-card-{theme.id}")
+            btn.set_halign(Gtk.Align.FILL)
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            card.set_margin_top(6)
+            card.set_margin_bottom(6)
+            card.set_margin_start(8)
+            card.set_margin_end(8)
+            btn.set_child(card)
+
+            primary = theme.colors.get("primary", "#ffffff")
+            accent = theme.colors.get("accent", "#ffffff")
+            text = theme.colors.get("text", "#ffffff")
+            active = theme.id == self.agent.themes.active_id
+            name = f"<b>{theme.name}</b>" + ("  ● ACTIVO" if active else "")
+            lbl_name = Gtk.Label()
+            lbl_name.set_use_markup(True)
+            lbl_name.set_markup(f"<span foreground='{primary}' size='large'>{name}</span>")
+            lbl_name.set_xalign(0.0)
+            card.append(lbl_name)
+
+            lbl_header = Gtk.Label()
+            lbl_header.set_use_markup(True)
+            lbl_header.set_markup(f"<span foreground='{text}'>{theme.header}</span>")
+            lbl_header.set_xalign(0.0)
+            card.append(lbl_header)
+
+            lbl_tag = Gtk.Label()
+            lbl_tag.set_use_markup(True)
+            lbl_tag.set_markup(f"<span foreground='{accent}'>{theme.tagline}</span>")
+            lbl_tag.set_xalign(0.0)
+            card.append(lbl_tag)
+
+            swatches = Gtk.Label()
+            swatches.set_use_markup(True)
+            swatches.set_markup(
+                f"<span foreground='{primary}'>●</span> "
+                f"<span foreground='{accent}'>●</span> "
+                f"<span foreground='{text}'>●</span>  "
+                f"<span foreground='{accent}'>animación: {theme.animation}</span>"
+            )
+            swatches.set_xalign(0.0)
+            card.append(swatches)
+
+            btn.connect("clicked", self.on_theme_view_picked, theme.id, win)
+            box.append(btn)
+
+        win.present()
+
+    def on_theme_view_picked(self, _button, theme_id, win):
         """Aplica el tema elegido en la vista de temas y la cierra."""
         if theme_id != self.agent.themes.active_id:
             theme = self.agent.set_theme(theme_id)
             self.apply_theme(theme)
-        self._refresh_theme_popover()
-        self.theme_popover.popdown()
+        win.close()
+
+    def _sync_external_theme(self):
+        """Aplica el tema si cambió fuera del HUD (TUI [m], /tema en otro proceso).
+
+        Lee ~/.config/lyla/active-theme.json (el mismo archivo que lee la
+        extensión de GNOME) cada 2 s. Devuelve True para seguir sondeando.
+        """
+        try:
+            theme_file = Path.home() / ".config" / "lyla" / "active-theme.json"
+            if theme_file.exists():
+                data = json.loads(theme_file.read_text(encoding="utf-8"))
+                theme_id = data.get("id")
+                if theme_id and theme_id != self.theme.id:
+                    theme = self.agent.themes.get(theme_id)
+                    if theme is not None:
+                        self.agent.set_theme(theme_id)
+                        self.apply_theme(theme)
+        except Exception:
+            pass
+        return True
 
     def apply_theme(self, theme):
         """Aplica un tema en vivo: CSS, textos de cabecera y colores de dibujo."""
@@ -424,7 +515,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             self.aura_canvas.queue_draw()
         if hasattr(self, "wave_canvas"):
             self.wave_canvas.queue_draw()
-        self._refresh_theme_popover()
+        self._refresh_theme_button()
 
     def _refresh_model_badge(self):
         prov, mod = self.agent.router.get_active_model()
@@ -608,7 +699,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             return
 
         self.append_console(f"Víctor > {user_text}")
-        self.lbl_sub.set_text("  PROCESANDO EN LA NUBE 2099...")
+        self.lbl_sub.set_text(f"  PROCESANDO EN LA NUBE • {self.theme.name.upper()}...")
 
         def _worker():
             try:
@@ -622,7 +713,12 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                     if reply_display:
                         self.append_console(reply_display)
                     self._refresh_model_badge()
-                    self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK")
+                    # Si el comando cambió el tema (/tema), aplicarlo en vivo
+                    # sin esperar al sondeo de 2 s.
+                    if self.agent.themes.active_id != self.theme.id:
+                        self.apply_theme(self.agent.themes.active)
+                    else:
+                        self.lbl_sub.set_text(self.theme.tagline)
                     return False
 
                 GLib.idle_add(_update_ui)
@@ -632,7 +728,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                     if self.voice_mode_aura:
                         GLib.idle_add(lambda: self.lbl_aura_status.set_text(" LYLA HABLANDO...") or False)
                     self.agent.speak_reply(raw_reply, interactive_cli=False, force=True)
-                    GLib.idle_add(lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False)
+                    GLib.idle_add(lambda: self.lbl_sub.set_text(self.theme.tagline) or False)
                     # Si estamos en modo conversación continua de voz, tras responder entra de nuevo en modo escucha
                     if self.voice_mode_aura:
                         time.sleep(0.5)
@@ -645,7 +741,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                             self.hotword_detector.set_dialog_state(False)
             except Exception as e:
                 GLib.idle_add(lambda: self.append_console(f"  [Error]: {e}") or False)
-                GLib.idle_add(lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False)
+                GLib.idle_add(lambda: self.lbl_sub.set_text(self.theme.tagline) or False)
                 if self.voice_mode_aura:
                     GLib.idle_add(lambda: self.stack.set_visible_child_name("chat") or False)
                     self.voice_mode_aura = False
@@ -714,7 +810,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
                         lambda: self.append_console("  No se detectó voz clara en la grabación.") or False
                     )
                     GLib.idle_add(
-                        lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
+                        lambda: self.lbl_sub.set_text(self.theme.tagline) or False
                     )
                     if self.voice_mode_aura:
                         GLib.idle_add(lambda: self.stack.set_visible_child_name("chat") or False)
@@ -727,7 +823,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             except Exception as e:
                 GLib.idle_add(lambda: self.append_console(f"  Error STT: {e}") or False)
                 GLib.idle_add(
-                    lambda: self.lbl_sub.set_text("OPERADOR: VÍCTOR • NUEVA YORK 2099 • SYNC OK") or False
+                    lambda: self.lbl_sub.set_text(self.theme.tagline) or False
                 )
                 if self.voice_mode_aura:
                     GLib.idle_add(lambda: self.stack.set_visible_child_name("chat") or False)
