@@ -1,46 +1,43 @@
-# Tema: LYLA (predeterminado)
-# La LYLA de siempre: neutra, sin temática de Spider-Man. Edítala a tu gusto:
-# cambia los colores, el header y la persona, y el HUD los aplica al instante.
-# Este es el tema base para que el usuario lo personalice como quiera.
+# Tema: LYLA (predeterminado — Estilo Apple UI / visionOS)
+# Clásica, tranquila y serena: cristal translúcido y orbe fluido minimalista.
 id: lyla-default
 name: "LYLA"
 header: "LYLA // AMBIENT INTELLIGENCE"
 tagline: "OPERADOR: VÍCTOR • FLUID GLASS • SYNC OK"
-window_title: "LYLA // HUD"
+window_title: "LYLA // AMBIENT HUD"
 animation: orb
 colors:
   primary: "#a78bfa"
-  primary_dark: "#5b21b6"
+  primary_dark: "#6d28d9"
   accent: "#38bdf8"
-  accent_dark: "#0e7490"
+  accent_dark: "#0284c7"
   background: "#0c0d14"
-  surface: "#12101f"
-  surface_active: "#1a1730"
-  entry_bg: "#12101f"
-  console_bg: "#08070f"
-  text: "#e6e6f0"
-  text_dim: "#a5a5c0"
+  surface: "#161826"
+  surface_active: "#1f2236"
+  entry_bg: "#161826"
+  console_bg: "#0a0b12"
+  text: "#f8fafc"
+  text_dim: "#94a3b8"
   text_bright: "#ffffff"
   success: "#34d399"
   danger: "#f43f5e"
 aura:
   glow:
-    - [0.55, 0.35, 0.95, 0.45]
-    - [0.15, 0.1, 0.5, 0.25]
+    - [0.65, 0.55, 0.98, 0.40]
+    - [0.22, 0.74, 0.97, 0.22]
     - [0.0, 0.0, 0.0, 0.0]
   sphere:
-    - [0.3, 0.2, 0.7, 0.95]
-    - [0.15, 0.1, 0.5, 0.95]
-    - [0.05, 0.05, 0.15, 0.98]
-  ring: [0.4, 0.3, 0.8, 0.8]
+    - [0.16, 0.18, 0.30, 0.94]
+    - [0.09, 0.11, 0.20, 0.96]
+    - [0.04, 0.04, 0.07, 0.98]
+  ring: [0.85, 0.90, 1.0, 0.45]
   waves:
-    - [0.55, 0.35, 0.95, 0.75]
-    - [0.13, 0.83, 0.93, 0.70]
-    - [0.9, 0.95, 1.0, 0.85]
+    - [0.77, 0.71, 0.99, 0.72]
+    - [0.49, 0.83, 0.99, 0.68]
+    - [1.0, 1.0, 1.0, 0.80]
 persona: |
-  ### Personalidad del tema — LYLA (predeterminado):
-  Eres LYLA, una asistente clásica, tranquila y minimalista, con
-  estética translúcida de cristal y ondas suaves. Habla con
-  naturalidad en español, con calma y precisión. Eres la compañera
-  de trabajo de Víctor: proactiva, honesta y sin rodeos.
-  Este tema es tuyo para editarlo como quieras.
+  ### Personalidad del tema — LYLA (Apple UI):
+  Eres LYLA, una asistente clásica, tranquila y minimalista con estética
+  translúcida de cristal y ondas suaves. Habla con naturalidad en español,
+  con calma, elegancia y precisión. Eres la compañera de trabajo de Víctor:
+  serena, proactiva, honesta y sin rodeos.

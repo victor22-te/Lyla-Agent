@@ -73,6 +73,8 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         super().__init__(application=app)
         self.agent = LylaAgent()
         self.theme = self.agent.themes.active
+        # Asegurar que el escritorio GNOME (GTK4/GTK3/Shell/Kitty) coincida al iniciar
+        self.agent.themes.sync_desktop_theme(self.theme)
         self.set_title(self.theme.window_title)
         self.set_default_size(580, 540)
         self.set_size_request(420, 380)
@@ -377,28 +379,57 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         self._open_theme_view()
 
     def _open_theme_view(self):
-        """Vista de temas: ventana con una tarjeta de previa por tema.
-
-        Cada tarjeta muestra el header, el tagline y los colores del tema
-        (fondo, primario, acento y texto), y el tema activo lleva la marca
-        ACTIVO. Al elegir una tarjeta se aplica el tema y se cierra la vista.
-        """
-        win = Gtk.Window(title="Temas de LYLA")
+        """Vista previa interactiva de los 5 temas (estilo V2 HTML) con animación en vivo."""
+        win = Gtk.Window(title="Temas de LYLA — Vista Previa")
         win.set_transient_for(self)
         win.set_modal(True)
-        win.set_default_size(520, 560)
+        win.set_default_size(900, 680)
         win.set_resizable(True)
+        win.add_css_class("lyla-gallery-window")
 
-        # CSS por tema para pintar cada tarjeta con sus colores (una sola vez).
+        meta_ui = {
+            "spider-man-2099": ("● LIVE", "Retícula holográfica & glitch RGB"),
+            "miles-morales": ("⚡ ACTIVE", "Arco voltaico fractal & flash"),
+            "symbiote": ("⬤ WE ARE", "Brea blanca/negra ultra viscosa"),
+            "spider-man-classic": ("● WEB", "Red elástica & sentido arácnido"),
+            "lyla-default": ("● ONLINE", "Orbe fluido sereno (Apple UI)"),
+        }
+
+        # CSS por tema para las tarjetas mini-HUD (una sola vez por sesión).
         if not getattr(self, "_theme_view_css_loaded", False):
-            css_rules = []
+            css_rules = [
+                ".lyla-gallery-window { background-color: #070709; color: #eeeeee; }",
+                ".theme-gallery-card { background-color: #121215; border: 1px solid #262630; border-radius: 16px; padding: 14px; }",
+                ".theme-gallery-card:hover { border-color: #4b5563; }",
+                ".theme-card-title { color: #ffffff; font-weight: 800; font-size: 15px; }",
+                ".theme-card-anim { color: #9ca3af; font-size: 11px; }",
+                ".theme-card-persona { color: #9ca3af; font-size: 11.5px; }",
+            ]
             for t in self.agent.themes.list_themes():
-                bg = t.colors.get("background", "#000000")
-                primary = t.colors.get("primary", "#ffffff")
-                text = t.colors.get("text", "#ffffff")
+                bg = t.colors.get("background", "#080a12")
+                sf = t.colors.get("surface", "#101016")
+                sf2 = t.colors.get("surface_active", "#161622")
+                pr = t.colors.get("primary", "#ff2a4b")
+                ac = t.colors.get("accent", "#00f0ff")
+                tx = t.colors.get("text", "#d4e0ff")
+                dim = t.colors.get("text_dim", "#94a3b8")
+                ok = t.colors.get("success", "#00ff9d")
+                is_orb = t.animation == "orb"
+                border_col = "rgba(255,255,255,0.18)" if is_orb else pr
+                mini_font = '"Inter", "Cantarell", system-ui, sans-serif' if is_orb else '"JetBrainsMono Nerd Font", monospace'
                 css_rules.append(
-                    f".theme-card-{t.id} {{ background-color: {bg}; color: {text}; "
-                    f"border: 2px solid {primary}; border-radius: 10px; padding: 10px; }}"
+                    f".theme-mini-{t.id} {{ background-color: {bg}; color: {tx}; "
+                    f"border: 1.5px solid {border_col}; border-radius: 12px; padding: 12px; font-family: {mini_font}; }}"
+                    f"\n.theme-mini-hdr-{t.id} {{ color: {'#f8fafc' if is_orb else pr}; font-weight: 800; font-size: 11.5px; }}"
+                    f"\n.theme-mini-badge-{t.id} {{ color: {ok}; font-weight: 700; font-size: 10.5px; }}"
+                    f"\n.theme-mini-sub-{t.id} {{ color: {dim if is_orb else ac}; font-size: 9.5px; }}"
+                    f"\n.theme-mini-pill-{t.id} {{ background-color: {sf2}; color: {tx if is_orb else ac}; "
+                    f"border: 1px solid {'rgba(255,255,255,0.16)' if is_orb else ac}; border-radius: 6px; padding: 3px 8px; font-size: 10px; font-weight: 700; }}"
+                    f"\n.theme-mini-console-{t.id} {{ background-color: {sf}; color: {dim}; "
+                    f"border-radius: 8px; border-left: 3px solid {ac if is_orb else pr}; padding: 6px 8px; font-size: 10px; }}"
+                    f"\n.theme-apply-{t.id} {{ background-color: {sf2}; color: {tx}; "
+                    f"border: 1.5px solid {pr}; border-radius: 8px; padding: 6px 12px; font-weight: 700; font-size: 11.5px; }}"
+                    f"\n.theme-apply-{t.id}:hover {{ background-color: {pr}; color: {'#050507' if pr.lower() == '#ffffff' else '#ffffff'}; }}"
                 )
             provider = Gtk.CssProvider()
             provider.load_from_data("\n".join(css_rules))
@@ -412,66 +443,161 @@ class LylaHudWindow(Gtk.ApplicationWindow):
         scrolled.set_vexpand(True)
         win.set_child(scrolled)
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        box.set_margin_top(12)
-        box.set_margin_bottom(12)
-        box.set_margin_start(12)
-        box.set_margin_end(12)
-        scrolled.set_child(box)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        outer.set_margin_top(16)
+        outer.set_margin_bottom(16)
+        outer.set_margin_start(18)
+        outer.set_margin_end(18)
+        scrolled.set_child(outer)
 
-        title = Gtk.Label(label="Elige un tema para LYLA")
-        title.add_css_class("lyla-title")
-        title.set_xalign(0.0)
-        box.append(title)
+        heading = Gtk.Label(label="Temas de LYLA — Vista Previa")
+        heading.add_css_class("theme-card-title")
+        heading.set_xalign(0.0)
+        outer.append(heading)
 
-        for theme in self.agent.themes.list_themes():
-            btn = Gtk.Button()
-            btn.add_css_class(f"theme-card-{theme.id}")
-            btn.set_halign(Gtk.Align.FILL)
-            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-            card.set_margin_top(6)
-            card.set_margin_bottom(6)
-            card.set_margin_start(8)
-            card.set_margin_end(8)
-            btn.set_child(card)
+        lead = Gtk.Label(
+            label="Cada tema cambia la física del radar/aura, la personalidad de LYLA y todo tu escritorio GNOME (Shell, GTK4/GTK3 y Kitty)."
+        )
+        lead.add_css_class("theme-card-persona")
+        lead.set_wrap(True)
+        lead.set_xalign(0.0)
+        outer.append(lead)
 
-            primary = theme.colors.get("primary", "#ffffff")
-            accent = theme.colors.get("accent", "#ffffff")
-            text = theme.colors.get("text", "#ffffff")
-            active = theme.id == self.agent.themes.active_id
-            name = f"<b>{theme.name}</b>" + ("  ● ACTIVO" if active else "")
-            lbl_name = Gtk.Label()
-            lbl_name.set_use_markup(True)
-            lbl_name.set_markup(f"<span foreground='{primary}' size='large'>{name}</span>")
-            lbl_name.set_xalign(0.0)
-            card.append(lbl_name)
+        grid = Gtk.Grid(column_spacing=14, row_spacing=14)
+        grid.set_column_homogeneous(True)
+        outer.append(grid)
 
-            lbl_header = Gtk.Label()
-            lbl_header.set_use_markup(True)
-            lbl_header.set_markup(f"<span foreground='{text}'>{theme.header}</span>")
-            lbl_header.set_xalign(0.0)
-            card.append(lbl_header)
+        preview_state = {"tick": 0.0, "areas": []}
 
-            lbl_tag = Gtk.Label()
-            lbl_tag.set_use_markup(True)
-            lbl_tag.set_markup(f"<span foreground='{accent}'>{theme.tagline}</span>")
+        for idx, theme in enumerate(self.agent.themes.list_themes()):
+            is_active = theme.id == self.agent.themes.active_id
+            badge_txt, anim_desc = meta_ui.get(theme.id, ("● LIVE", theme.animation))
+
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            card.add_css_class("theme-gallery-card")
+
+            # Mini-HUD embebido con el estilo real de cada tema
+            mini = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            mini.add_css_class(f"theme-mini-{theme.id}")
+
+            top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            lbl_hdr = Gtk.Label(label=f"󱇪  {theme.header}")
+            lbl_hdr.add_css_class(f"theme-mini-hdr-{theme.id}")
+            lbl_hdr.set_xalign(0.0)
+            lbl_hdr.set_hexpand(True)
+            lbl_hdr.set_ellipsize(Pango.EllipsizeMode.END)
+            lbl_badge = Gtk.Label(label=badge_txt)
+            lbl_badge.add_css_class(f"theme-mini-badge-{theme.id}")
+            top_row.append(lbl_hdr)
+            top_row.append(lbl_badge)
+            mini.append(top_row)
+
+            lbl_tag = Gtk.Label(label=theme.tagline)
+            lbl_tag.add_css_class(f"theme-mini-sub-{theme.id}")
             lbl_tag.set_xalign(0.0)
-            card.append(lbl_tag)
+            lbl_tag.set_ellipsize(Pango.EllipsizeMode.END)
+            mini.append(lbl_tag)
 
+            mid_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            area = Gtk.DrawingArea()
+            area.set_size_request(92, 92)
+            area.set_valign(Gtk.Align.CENTER)
+
+            def _make_draw(t_obj):
+                def _draw(_da, cr, w, h):
+                    self._draw_radar_for_theme(cr, w / 2.0, h / 2.0, min(w, h) / 2.0 - 4, t_obj, preview_state["tick"], cpu_pct=36.0)
+                return _draw
+
+            area.set_draw_func(_make_draw(theme))
+            preview_state["areas"].append(area)
+            mid_row.append(area)
+
+            pills_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+            pills_box.set_valign(Gtk.Align.CENTER)
+            pills_box.set_hexpand(True)
+            row1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+            for p_lbl in ("Status", "Voz ON", "Fondo"):
+                pl = Gtk.Label(label=p_lbl)
+                pl.add_css_class(f"theme-mini-pill-{theme.id}")
+                row1.append(pl)
+            pills_box.append(row1)
+
+            mini_console = Gtk.Label(label=f"{theme.name} EN LÍNEA • Listo para operar.")
+            mini_console.add_css_class(f"theme-mini-console-{theme.id}")
+            mini_console.set_xalign(0.0)
+            mini_console.set_wrap(True)
+            pills_box.append(mini_console)
+            mid_row.append(pills_box)
+            mini.append(mid_row)
+            card.append(mini)
+
+            # Pie de tarjeta: nombre, animación, persona, swatches y botón de activar
+            title_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            lbl_name = Gtk.Label(label=theme.name)
+            lbl_name.add_css_class("theme-card-title")
+            lbl_name.set_xalign(0.0)
+            lbl_name.set_hexpand(True)
+            title_row.append(lbl_name)
+            if is_active:
+                lbl_act = Gtk.Label()
+                lbl_act.set_use_markup(True)
+                lbl_act.set_markup(f"<span foreground='{theme.colors.get('success', '#00ff9d')}'><b>● ACTIVO</b></span>")
+                title_row.append(lbl_act)
+            card.append(title_row)
+
+            lbl_anim = Gtk.Label()
+            lbl_anim.set_use_markup(True)
+            lbl_anim.set_markup(f"<span foreground='#9ca3af'>Animación: </span><span foreground='#eeeeee'><b>{anim_desc}</b></span>")
+            lbl_anim.set_xalign(0.0)
+            card.append(lbl_anim)
+
+            # Resumen de persona (primera línea significativa del bloque YAML)
+            persona_lines = [ln.strip() for ln in (theme.persona or "").splitlines() if ln.strip() and not ln.strip().startswith("###")]
+            persona_short = " ".join(persona_lines[:2])
+            if len(persona_short) > 120:
+                persona_short = persona_short[:117].rstrip() + "..."
+            lbl_per = Gtk.Label(label=persona_short)
+            lbl_per.add_css_class("theme-card-persona")
+            lbl_per.set_wrap(True)
+            lbl_per.set_xalign(0.0)
+            card.append(lbl_per)
+
+            pr = theme.colors.get("primary", "#ffffff")
+            ac = theme.colors.get("accent", "#ffffff")
+            bg = theme.colors.get("background", "#000000")
             swatches = Gtk.Label()
             swatches.set_use_markup(True)
             swatches.set_markup(
-                f"<span foreground='{primary}'>●</span> "
-                f"<span foreground='{accent}'>●</span> "
-                f"<span foreground='{text}'>●</span>  "
-                f"<span foreground='{accent}'>animación: {theme.animation}</span>"
+                f"<span foreground='{pr}'>■</span> <span foreground='#aaaaaa'>Primario</span> <b>{pr}</b>   "
+                f"<span foreground='{ac}'>■</span> <span foreground='#aaaaaa'>Acento</span> <b>{ac}</b>   "
+                f"<span foreground='{bg}'>■</span> <span foreground='#aaaaaa'>Fondo</span> <b>{bg}</b>"
             )
             swatches.set_xalign(0.0)
             card.append(swatches)
 
-            btn.connect("clicked", self.on_theme_view_picked, theme.id, win)
-            box.append(btn)
+            btn_apply = Gtk.Button(label="Tema activo ✓" if is_active else f"Aplicar {theme.name}")
+            btn_apply.add_css_class(f"theme-apply-{theme.id}")
+            btn_apply.connect("clicked", self.on_theme_view_picked, theme.id, win)
+            card.append(btn_apply)
 
+            grid.attach(card, idx % 2, idx // 2, 1, 1)
+
+        def _tick_preview():
+            preview_state["tick"] = (preview_state["tick"] + 0.065) % (200 * math.pi)
+            for a in preview_state["areas"]:
+                a.queue_draw()
+            return True
+
+        timer_id = GLib.timeout_add(33, _tick_preview)
+
+        def _on_close(_w):
+            nonlocal timer_id
+            if timer_id is not None:
+                GLib.Source.remove(timer_id)
+                timer_id = None
+            return False
+
+        win.connect("close-request", _on_close)
         win.present()
 
     def on_theme_view_picked(self, _button, theme_id, win):
@@ -920,185 +1046,282 @@ class LylaHudWindow(Gtk.ApplicationWindow):
     # Simbionte "symbiote": brea ultra viscosa (masas negras con borde blanco + tendrils).
     # Clásico "web": telaraña elástica estilo Tobey Maguire + sentido arácnido.
     # LYLA "orb": orbe fluido sereno estilo Apple (Siri) — 3 capas + anillos.
-    def _draw_theme_fx(self, cr, cx, cy, r, tick):
+    def _draw_theme_fx(self, cr, cx, cy, r, tick, theme=None):
         """Efecto de animación del tema activo dentro de un círculo (cx, cy, r)."""
-        style = self.theme.animation
+        theme = theme or self.theme
+        style = theme.animation
         if style == "futuristic":
-            self._fx_futuristic(cr, cx, cy, r, tick)
+            self._fx_futuristic(cr, cx, cy, r, tick, theme)
         elif style == "electric":
-            self._fx_electric(cr, cx, cy, r, tick)
+            self._fx_electric(cr, cx, cy, r, tick, theme)
         elif style == "symbiote":
-            self._fx_symbiote(cr, cx, cy, r, tick)
+            self._fx_symbiote(cr, cx, cy, r, tick, theme)
         elif style == "web":
-            self._fx_web(cr, cx, cy, r, tick)
+            self._fx_web(cr, cx, cy, r, tick, theme)
         elif style == "orb":
-            self._fx_orb(cr, cx, cy, r, tick)
-        # (sin estilo válido no hay efecto extra)
+            self._fx_orb(cr, cx, cy, r, tick, theme)
 
-    def _fx_futuristic(self, cr, cx, cy, r, tick):
-        """2099: scanlines + barra de escaneo + glitch RGB ocasional."""
+    def _fx_futuristic(self, cr, cx, cy, r, tick, theme):
+        """2099: retícula holográfica Alchemax, anillos contrarrotatorios, scanlines y glitch RGB."""
         cr.save()
         cr.arc(cx, cy, r, 0, 2 * math.pi)
         cr.clip()
         # Scanlines horizontales sutiles
         cr.set_line_width(1.0)
-        cr.set_source_rgba(*self.theme.rgb("accent", 0.06))
+        cr.set_source_rgba(*theme.rgb("accent", 0.06))
         y = cy - r
         while y < cy + r:
             cr.move_to(cx - r, y)
             cr.line_to(cx + r, y)
             cr.stroke()
-            y += 4.0
-        # Barra de escaneo que baja y sube
-        scan_y = cy + math.sin(tick * 1.1) * r * 0.9
-        cr.set_line_width(3.0)
-        cr.set_source_rgba(*self.theme.rgb("accent", 0.55))
+            y += 3.5
+
+        # Anillo exterior cian rotatorio con marcas cardinales
+        cr.save()
+        cr.translate(cx, cy)
+        cr.rotate(tick * 0.4)
+        cr.set_line_width(1.3)
+        cr.set_dash([14, 6, 4, 6])
+        cr.set_source_rgba(*theme.rgb("accent", 0.72))
+        cr.arc(0, 0, r * 0.90, 0, 2 * math.pi)
+        cr.stroke()
+        cr.set_dash([])
+        cr.set_line_width(1.8)
+        for k in range(4):
+            ang = k * math.pi / 2.0
+            cr.move_to(math.cos(ang) * r * 0.80, math.sin(ang) * r * 0.80)
+            cr.line_to(math.cos(ang) * r * 0.98, math.sin(ang) * r * 0.98)
+            cr.stroke()
+        cr.restore()
+
+        # Anillo interior rojo contrarrotatorio con muescas de garra
+        cr.save()
+        cr.translate(cx, cy)
+        cr.rotate(-tick * 0.75)
+        cr.set_line_width(1.8)
+        cr.set_dash([10, 12])
+        cr.set_source_rgba(*theme.rgb("primary", 0.85))
+        cr.arc(0, 0, r * 0.68, 0, 2 * math.pi)
+        cr.stroke()
+        cr.set_dash([])
+        cr.restore()
+
+        # Emblema hexagonal / octogonal con salto cuántico y glitch RGB
+        glitch_on = int(tick * 5) % 14 == 6
+        gx = -3.0 if glitch_on else 0.0
+        gy = 1.5 if glitch_on else 0.0
+        for off_x, off_y, col, al in (
+            (gx, gy, "accent", 0.55),
+            (-gx if glitch_on else 0.0, -gy if glitch_on else 0.0, "primary", 0.70 if glitch_on else 0.45),
+        ):
+            cr.set_line_width(1.2)
+            cr.set_source_rgba(*theme.rgb(col, al))
+            hex_r = r * 0.48
+            for i in range(6):
+                a = i * math.pi / 3.0 - math.pi / 2.0
+                px = cx + off_x + math.cos(a) * hex_r
+                py = cy + off_y + math.sin(a) * hex_r
+                if i == 0:
+                    cr.move_to(px, py)
+                else:
+                    cr.line_to(px, py)
+            cr.close_path()
+            cr.stroke()
+
+        # Barra de escaneo vertical brillante
+        scan_y = cy + math.sin(tick * 1.15) * r * 0.88
+        grad_scan = cairo.LinearGradient(cx - r, scan_y, cx + r, scan_y)
+        grad_scan.add_color_stop_rgba(0.0, *theme.rgb("accent", 0.0))
+        grad_scan.add_color_stop_rgba(0.35, *theme.rgb("accent", 0.65))
+        grad_scan.add_color_stop_rgba(0.65, *theme.rgb("primary", 0.65))
+        grad_scan.add_color_stop_rgba(1.0, *theme.rgb("primary", 0.0))
+        cr.set_source(grad_scan)
+        cr.set_line_width(3.5)
         cr.move_to(cx - r, scan_y)
         cr.line_to(cx + r, scan_y)
         cr.stroke()
-        # Glitch RGB breve (salto cuántico, ~cada 2.8 s)
-        if int(tick * 4) % 11 == 5:
-            cr.set_line_width(1.5)
-            cr.set_source_rgba(*self.theme.rgb("accent", 0.8))
-            cr.arc(cx + 3, cy, r * 0.9, 0, 2 * math.pi)
-            cr.stroke()
-            cr.set_source_rgba(*self.theme.rgb("primary", 0.8))
-            cr.arc(cx - 3, cy, r * 0.9, 0, 2 * math.pi)
-            cr.stroke()
         cr.restore()
 
-    def _fx_electric(self, cr, cx, cy, r, tick):
-        """Rayos de Miles Morales + anillo Tesla punteado que gira."""
+    def _fx_electric(self, cr, cx, cy, r, tick, theme):
+        """Miles Morales: núcleo bio-eléctrico dorado/cian + bobina Tesla + arcos fractales."""
         cr.save()
         cr.arc(cx, cy, r, 0, 2 * math.pi)
         cr.clip()
-        # Anillo Tesla perimetral (punteado, gira con el tiempo)
-        cr.set_line_width(1.4)
-        cr.set_dash([14, 28, 6, 18], tick * 40)
-        cr.set_source_rgba(*self.theme.rgb("accent", 0.7))
-        cr.arc(cx, cy, r * 0.96, 0, 2 * math.pi)
+        # Resplandor de núcleo dorado + cian
+        core = cairo.RadialGradient(cx, cy, 2, cx, cy, r * 0.88)
+        core.add_color_stop_rgba(0.0, 1.0, 0.835, 0.0, 0.24)
+        core.add_color_stop_rgba(0.5, *theme.rgb("accent", 0.16))
+        core.add_color_stop_rgba(1.0, 0.0, 0.0, 0.0, 0.0)
+        cr.set_source(core)
+        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        cr.fill()
+
+        # Bobina Tesla perimetral giratoria (alternando cian y dorado)
+        surge = (int(tick * 6) % 9) in (0, 1)
+        cr.set_line_width(1.8 if surge else 1.4)
+        cr.set_dash([12, 18, 5, 14], tick * 48)
+        ring_col = "success" if surge else "accent"
+        cr.set_source_rgba(*theme.rgb(ring_col, 0.92 if surge else 0.72))
+        cr.arc(cx, cy, r * 0.92, 0, 2 * math.pi)
         cr.stroke()
         cr.set_dash([])
-        # Rayos fractales que zigzaguean y parpadean
-        step = int(tick * 10)
+
+        # Rayos fractales bio-eléctricos en oro y cian con destello blanco
+        step = int(tick * 11)
         rng = random.Random(1337 + step)
-        for bolt in range(3):
-            if rng.random() < 0.35:
-                continue  # a veces el rayo no se ve (parpadeo)
+        for bolt in range(4):
+            if rng.random() < 0.28 and not surge:
+                continue
             ang = rng.uniform(0, 2 * math.pi)
-            cr.move_to(cx + math.cos(ang) * r, cy + math.sin(ang) * r)
+            start_r = r * 0.96
+            cr.move_to(cx + math.cos(ang) * start_r, cy + math.sin(ang) * start_r)
             segs = 6
+            pts = [(cx + math.cos(ang) * start_r, cy + math.sin(ang) * start_r)]
             for s in range(1, segs + 1):
                 f = s / segs
-                bx = cx + math.cos(ang) * r * (1 - f)
-                by = cy + math.sin(ang) * r * (1 - f)
-                off = rng.uniform(-r * 0.12, r * 0.12)
-                px = bx + math.cos(ang + math.pi / 2) * off
-                py = by + math.sin(ang + math.pi / 2) * off
-                cr.line_to(px, py)
-            cr.set_line_width(2.0)
-            cr.set_line_cap(1)
+                cur_r = start_r * (1 - f * 1.4)
+                bx = cx + math.cos(ang) * cur_r
+                by = cy + math.sin(ang) * cur_r
+                off = rng.uniform(-r * 0.14, r * 0.14)
+                pts.append((bx + math.cos(ang + math.pi / 2) * off, by + math.sin(ang + math.pi / 2) * off))
             color = "success" if bolt % 2 == 0 else "accent"
-            cr.set_source_rgba(*self.theme.rgb(color, 0.9))
+            # Halo del rayo
+            cr.set_line_width(3.2)
+            cr.set_line_cap(1)
+            cr.set_source_rgba(*theme.rgb(color, 0.45))
+            cr.move_to(*pts[0])
+            for px, py in pts[1:]:
+                cr.line_to(px, py)
+            cr.stroke()
+            # Núcleo nítido del rayo
+            cr.set_line_width(1.6)
+            cr.set_source_rgba(*theme.rgb(color, 0.98))
+            cr.move_to(*pts[0])
+            for px, py in pts[1:]:
+                cr.line_to(px, py)
             cr.stroke()
         cr.restore()
 
-    def _fx_symbiote(self, cr, cx, cy, r, tick):
-        """Brea simbiótica: masas negras con borde blanco + tendrils que se estiran."""
+    def _fx_symbiote(self, cr, cx, cy, r, tick, theme):
+        """Simbionte (Venom): brea negro azabache ultra viscosa con bordes blanco puro y brillo húmedo."""
         cr.save()
         cr.arc(cx, cy, r, 0, 2 * math.pi)
         cr.clip()
-        # Masas (núcleo + lóbulos): brea negra con borde blanco que pulsa y deriva
+
+        # Tendrils pesados que cruzan y se estiran desde los bordes
+        for i in range(4):
+            ang = (i * math.pi / 2.0) + 0.55 + math.sin(tick * 0.7 + i) * 0.28
+            reach = r * (0.20 + 0.35 * math.sin(tick * 1.15 + i * 1.4))
+            perp = ang + math.pi / 2.0
+            w_base = r * 0.14
+            w_tip = r * 0.05
+            x0, y0 = cx + math.cos(ang) * r * 1.05, cy + math.sin(ang) * r * 1.05
+            x1, y1 = cx + math.cos(ang) * reach, cy + math.sin(ang) * reach
+            bend = math.sin(tick * 1.6 + i) * r * 0.18
+            mx, my = (x0 + x1) / 2.0 + math.cos(perp) * bend, (y0 + y1) / 2.0 + math.sin(perp) * bend
+
+            cr.move_to(x0 + math.cos(perp) * w_base, y0 + math.sin(perp) * w_base)
+            cr.curve_to(
+                mx + math.cos(perp) * w_base * 0.6, my + math.sin(perp) * w_base * 0.6,
+                mx + math.cos(perp) * w_tip, my + math.sin(perp) * w_tip,
+                x1, y1,
+            )
+            cr.curve_to(
+                mx - math.cos(perp) * w_tip, my - math.sin(perp) * w_tip,
+                mx - math.cos(perp) * w_base * 0.6, my - math.sin(perp) * w_base * 0.6,
+                x0 - math.cos(perp) * w_base, y0 - math.sin(perp) * w_base,
+            )
+            cr.close_path()
+            cr.set_source_rgba(0.015, 0.015, 0.02, 0.98)
+            cr.fill_preserve()
+            cr.set_line_width(1.8)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.90)
+            cr.stroke()
+
+        # Masas orgánicas negro azabache con reborde blanco puro y reflejo húmedo
         blobs = [
-            (0.0, 0.0, 0.34, 0.0),    # núcleo
-            (-0.42, -0.38, 0.24, 1.3), # lóbulo 1
-            (0.40, 0.38, 0.25, 2.1),   # lóbulo 2
-            (0.44, -0.36, 0.19, 2.9),  # lóbulo 3
+            (0.0, 0.0, 0.42, 0.0),
+            (-0.36, -0.32, 0.26, 1.2),
+            (0.36, 0.34, 0.27, 2.2),
+            (0.34, -0.32, 0.21, 3.1),
+            (-0.32, 0.34, 0.18, 4.3),
         ]
         for bx, by, br, phase in blobs:
-            dx = math.sin(tick * 0.7 + phase) * r * 0.10
-            dy = math.cos(tick * 0.6 + phase) * r * 0.10
-            scale = 1.0 + 0.16 * math.sin(tick * 1.1 + phase)
+            dx = math.sin(tick * 0.75 + phase) * r * 0.14
+            dy = math.cos(tick * 0.65 + phase) * r * 0.14
+            scale = 1.0 + 0.14 * math.sin(tick * 1.15 + phase)
             x = cx + bx * r + dx
             y = cy + by * r + dy
             cr.save()
             cr.translate(x, y)
-            cr.scale(scale * (1.0 + 0.08 * math.sin(tick + phase)),
-                     scale * (1.0 - 0.08 * math.sin(tick + phase)))
-            cr.set_source_rgba(*self.theme.rgb("background", 0.98))
+            cr.scale(
+                scale * (1.0 + 0.12 * math.sin(tick * 0.9 + phase)),
+                scale * (1.0 - 0.12 * math.sin(tick * 0.9 + phase)),
+            )
+            cr.set_source_rgba(0.012, 0.012, 0.016, 0.98)
             cr.arc(0, 0, br * r, 0, 2 * math.pi)
             cr.fill_preserve()
-            cr.set_line_width(2.5)
-            cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
+            cr.set_line_width(2.0)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.95)
+            cr.stroke()
+            # Brillo especular húmedo en el borde superior izquierdo de cada masa
+            cr.set_line_width(1.3)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.55)
+            cr.arc(0, 0, br * r * 0.74, math.pi * 1.1, math.pi * 1.55)
             cr.stroke()
             cr.restore()
-        # Tendrils: curvas orgánicas que pulsan y se balancean
-        for i in range(4):
-            ang = (i * 2 * math.pi / 4) + math.sin(tick * 0.6 + i) * 0.25
-            length = r * (0.55 + 0.25 * math.sin(tick * 1.3 + i * 1.7))
-            x0 = cx + math.cos(ang) * r
-            y0 = cy + math.sin(ang) * r
-            wx = math.sin(tick * 2.0 + i) * r * 0.12
-            wy = math.cos(tick * 2.0 + i) * r * 0.12
-            c1x = cx + math.cos(ang) * r * 0.66 + wx
-            c1y = cy + math.sin(ang) * r * 0.66 + wy
-            x2 = cx + math.cos(ang) * length
-            y2 = cy + math.sin(ang) * length
-            cr.set_line_width(5.0)
-            cr.set_line_cap(1)
-            color = "primary" if i % 2 == 0 else "accent"
-            cr.set_source_rgba(*self.theme.rgb(color, 0.75))
-            cr.move_to(x0, y0)
-            cr.curve_to(c1x, c1y, c1x, c1y, x2, y2)
-            cr.stroke()
+
         cr.restore()
 
-    def _fx_web(self, cr, cx, cy, r, tick):
-        """Telaraña estilo Tobey Maguire: 12 radios + anillos combados + sentido arácnido."""
-        # La telaraña respira (escala elástica)
-        wobble = 1.0 + 0.04 * math.sin(tick * 2.0)
+    def _fx_web(self, cr, cx, cy, r, tick, theme):
+        """Spider-Man Clásico: red elástica con tensión + ondas zig-zag del Sentido Arácnido."""
+        wobble = 1.0 + 0.045 * math.sin(tick * 2.1)
         cr.save()
         cr.translate(cx, cy)
         cr.scale(wobble, wobble)
         cr.translate(-cx, -cy)
         spokes = 12
         cr.set_line_width(1.0)
-        cr.set_source_rgba(*self.theme.rgb("accent", 0.45))
+        cr.set_source_rgba(*theme.rgb("accent", 0.55))
         for i in range(spokes):
-            a = (i * 2 * math.pi / spokes) + tick * 0.05
+            a = (i * 2 * math.pi / spokes) + tick * 0.04
             cr.move_to(cx, cy)
             cr.line_to(cx + math.cos(a) * r, cy + math.sin(a) * r)
             cr.stroke()
-        for r_fac in (0.3, 0.55, 0.8):
+        for r_fac in (0.30, 0.55, 0.80):
             rr = r * r_fac
             for i in range(spokes):
-                a0 = (i * 2 * math.pi / spokes) + tick * 0.05
-                a1 = ((i + 1) * 2 * math.pi / spokes) + tick * 0.05
-                x0 = cx + math.cos(a0) * rr
-                y0 = cy + math.sin(a0) * rr
-                x1 = cx + math.cos(a1) * rr
-                y1 = cy + math.sin(a1) * rr
+                a0 = (i * 2 * math.pi / spokes) + tick * 0.04
+                a1 = ((i + 1) * 2 * math.pi / spokes) + tick * 0.04
+                x0, y0 = cx + math.cos(a0) * rr, cy + math.sin(a0) * rr
+                x1, y1 = cx + math.cos(a1) * rr, cy + math.sin(a1) * rr
                 am = (a0 + a1) / 2.0
                 sag = rr * 0.18
-                xm = cx + math.cos(am) * (rr - sag)
-                ym = cy + math.sin(am) * (rr - sag)
+                xm, ym = cx + math.cos(am) * (rr - sag), cy + math.sin(am) * (rr - sag)
                 cr.move_to(x0, y0)
                 cr.curve_to(xm, ym, xm, ym, x1, y1)
                 cr.stroke()
         cr.restore()
-        # Sentido arácnido: onda en zig-zag que se expande y se desvanece
+
+        # Doble onda en zig-zag del Sentido Arácnido (roja y dorada)
         period = 2.4
-        phase = (tick % period) / period
-        alpha = 0.95 * (1.0 - phase)
-        if alpha > 0.02:
-            scale = 0.35 + 0.77 * phase
+        waves = [
+            (0.0, (*theme.rgb("primary", 1.0)[:3],), 1.8),
+            (0.35, (1.0, 0.835, 0.0), 1.3),
+        ]
+        for delay, rgb_tuple, lw in waves:
+            phase = ((tick - delay) % period) / period
+            alpha = 0.95 * (1.0 - phase)
+            if alpha <= 0.03:
+                continue
+            scale = 0.32 + 0.80 * phase
             cr.save()
-            cr.set_line_width(1.6)
-            cr.set_source_rgba(*self.theme.rgb("primary", alpha))
+            cr.set_line_width(lw)
+            cr.set_source_rgba(*rgb_tuple, alpha)
             pts = []
-            for i in range(16):
-                ang = i * 2 * math.pi / 16
-                rr = r * scale * (0.92 if i % 2 == 0 else 0.78)
+            for i in range(20):
+                ang = i * 2 * math.pi / 20
+                rr = r * scale * (0.95 if i % 2 == 0 else 0.76)
                 pts.append((cx + math.cos(ang) * rr, cy + math.sin(ang) * rr))
             cr.move_to(*pts[0])
             for x, y in pts[1:]:
@@ -1107,38 +1330,158 @@ class LylaHudWindow(Gtk.ApplicationWindow):
             cr.stroke()
             cr.restore()
 
-    def _fx_orb(self, cr, cx, cy, r, tick):
-        """Orbe fluido sereno estilo Apple (Siri): 3 capas que respiran + anillos."""
+    def _fx_orb(self, cr, cx, cy, r, tick, theme):
+        """LYLA (Apple UI / visionOS): 3 capas luminosas suaves + anillos armónicos serenos."""
         cr.save()
         cr.arc(cx, cy, r, 0, 2 * math.pi)
         cr.clip()
-        # 3 capas suaves (lavanda, azul, perla) que orbitan y respiran
+        # Fondo radial suave visionOS
+        bg = cairo.RadialGradient(cx, cy, 2, cx, cy, r)
+        bg.add_color_stop_rgba(0.0, 0.075, 0.086, 0.149, 0.95)
+        bg.add_color_stop_rgba(1.0, 0.035, 0.039, 0.063, 0.98)
+        cr.set_source(bg)
+        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        cr.fill()
+
         layers = [
-            ("primary", 0.36, 0.0, 1.0),      # lavanda
-            ("accent", 0.32, 1.7, 1.25),      # azul
-            ("text_bright", 0.24, 2.9, 0.9),  # perla
+            ("primary", 0.56, 0.0, 0.85),     # lavanda (#a78bfa)
+            ("accent", 0.52, 2.0, 1.05),      # azul cielo (#38bdf8)
+            ("text_bright", 0.36, 3.8, 0.70), # perla blanco
         ]
         for color, rad, phase, speed in layers:
-            ang = tick * 0.45 * speed + phase
-            ox = math.cos(ang) * r * 0.18
-            oy = math.sin(ang) * r * 0.18
-            rr = r * rad * (1.0 + 0.10 * math.sin(tick * 0.8 + phase))
-            grad = cairo.RadialGradient(cx + ox, cy + oy, 2, cx + ox, cy + oy, rr)
-            grad.add_color_stop_rgba(0.0, *self.theme.rgb(color, 0.75))
-            grad.add_color_stop_rgba(0.6, *self.theme.rgb(color, 0.30))
-            grad.add_color_stop_rgba(1.0, *self.theme.rgb(color, 0.0))
+            ang = tick * 0.42 * speed + phase
+            ox = math.cos(ang) * r * 0.16
+            oy = math.sin(ang) * r * 0.16
+            rr = r * rad * (1.0 + 0.10 * math.sin(tick * 0.75 + phase))
+            grad = cairo.RadialGradient(cx + ox, cy + oy, 1, cx + ox, cy + oy, rr)
+            grad.add_color_stop_rgba(0.0, *theme.rgb(color, 0.65))
+            grad.add_color_stop_rgba(0.55, *theme.rgb(color, 0.25))
+            grad.add_color_stop_rgba(1.0, *theme.rgb(color, 0.0))
             cr.set_source(grad)
             cr.arc(cx + ox, cy + oy, rr, 0, 2 * math.pi)
             cr.fill()
-        # 2 anillos finos que giran en sentido contrario
-        for i, (rr_fac, speed, alpha) in enumerate([(0.78, 0.3, 0.35), (0.68, -0.4, 0.30)]):
-            cr.set_line_width(1.0)
-            cr.set_dash([3, 6], tick * 30 * speed)
-            cr.set_source_rgba(*self.theme.rgb("text_bright" if i == 0 else "accent", alpha))
-            cr.arc(cx, cy, r * rr_fac, 0, 2 * math.pi)
+
+        # 2 anillos armónicos finos estilo visionOS
+        for idx, (rx_fac, ry_fac, rot, col, alpha) in enumerate([
+            (0.76, 0.68, tick * 0.35, "text_bright", 0.32),
+            (0.68, 0.76, -tick * 0.42, "accent", 0.36),
+        ]):
+            cr.save()
+            cr.translate(cx, cy)
+            cr.rotate(rot)
+            cr.scale(rx_fac, ry_fac)
+            cr.set_line_width(1.2)
+            cr.set_source_rgba(*theme.rgb(col, alpha))
+            cr.arc(0, 0, r, 0, 2 * math.pi)
             cr.stroke()
-        cr.set_dash([])
+            cr.restore()
         cr.restore()
+
+    def _draw_spider_emblem(self, cr, cx, cy, scale, theme):
+        """Dibuja el emblema de araña estilizada escalado al radio actual."""
+        cr.save()
+        cr.translate(cx, cy)
+        cr.scale(scale, scale)
+        cr.set_source_rgba(*theme.rgb("primary", 0.95))
+        cr.set_line_width(2.2)
+
+        # Cuerpo de araña (diamante)
+        cr.move_to(0, -18)
+        cr.line_to(11, -4)
+        cr.line_to(7, 16)
+        cr.line_to(0, 23)
+        cr.line_to(-7, 16)
+        cr.line_to(-11, -4)
+        cr.close_path()
+        cr.stroke()
+
+        # Ojos brillantes
+        cr.set_source_rgba(*theme.rgb("accent", 0.95))
+        cr.move_to(-6, -4)
+        cr.line_to(-2, -1)
+        cr.stroke()
+        cr.move_to(6, -4)
+        cr.line_to(2, -1)
+        cr.stroke()
+
+        # 8 patas cyber
+        cr.set_source_rgba(*theme.rgb("primary", 0.95))
+        legs = [
+            ((-9, -8), (-24, -26), (-18, -42)),
+            ((-11, -2), (-32, -10), (-38, -26)),
+            ((-10, 5), (-30, 14), (-34, 32)),
+            ((-7, 12), (-20, 28), (-14, 44)),
+            ((9, -8), (24, -26), (18, -42)),
+            ((11, -2), (32, -10), (38, -26)),
+            ((10, 5), (30, 14), (34, 32)),
+            ((7, 12), (20, 28), (14, 44)),
+        ]
+        for (x1, y1), (x2, y2), (x3, y3) in legs:
+            cr.move_to(x1, y1)
+            cr.line_to(x2, y2)
+            cr.line_to(x3, y3)
+            cr.stroke()
+        cr.restore()
+
+    def _draw_radar_for_theme(self, cr, cx, cy, radius, theme, tick, cpu_pct=0.0):
+        """Renderiza el radar completo (HUD principal y mini-previas de la galería)."""
+        style = theme.animation
+
+        # Fondo circular oscuro del tema
+        cr.arc(cx, cy, radius, 0, 2 * math.pi)
+        cr.set_source_rgba(*theme.rgb("background", 0.95))
+        cr.fill()
+
+        if style == "orb":
+            # LYLA Apple UI: orbe fluido sereno sin rejilla cyber ni araña
+            self._fx_orb(cr, cx, cy, radius, tick, theme)
+            cr.set_line_width(1.6)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.24)
+            cr.arc(cx, cy, radius, 0, 2 * math.pi)
+            cr.stroke()
+            return
+
+        if style == "symbiote":
+            # Venom: brea negro/blanco ultra viscosa sin rejilla cian encima
+            self._fx_symbiote(cr, cx, cy, radius, tick, theme)
+            cr.set_line_width(2.0)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.85)
+            cr.arc(cx, cy, radius, 0, 2 * math.pi)
+            cr.stroke()
+            self._draw_spider_emblem(cr, cx, cy, (radius / 80.0) * 0.72, theme)
+            return
+
+        if style == "web":
+            self._fx_web(cr, cx, cy, radius, tick, theme)
+        else:
+            # Telaraña sutil de fondo para 2099 / Miles
+            cr.set_line_width(1.0)
+            cr.set_source_rgba(*theme.rgb("accent", 0.20 if style == "electric" else 0.26))
+            for i in range(8):
+                a = (i * 2 * math.pi / 8) + tick * 0.25
+                cr.move_to(cx, cy)
+                cr.line_to(cx + math.cos(a) * radius, cy + math.sin(a) * radius)
+                cr.stroke()
+            for r_fac in (0.35, 0.62, 0.88):
+                cr.arc(cx, cy, radius * r_fac, 0, 2 * math.pi)
+                cr.stroke()
+            self._draw_theme_fx(cr, cx, cy, radius, tick, theme)
+
+        # Arco exterior rotatorio + indicador de CPU
+        cr.set_line_width(2.8)
+        cr.set_source_rgba(*theme.rgb("accent", 0.85))
+        cr.arc(cx, cy, radius, tick, tick + math.pi * 0.8)
+        cr.stroke()
+        cr.arc(cx, cy, radius, tick + math.pi, tick + math.pi * 1.8)
+        cr.stroke()
+
+        cpu_angle = (cpu_pct / 100.0) * (2 * math.pi)
+        cr.set_line_width(4.0)
+        cr.set_source_rgba(*theme.rgb("primary", 0.95))
+        cr.arc(cx, cy, radius - 6, -math.pi / 2, -math.pi / 2 + cpu_angle)
+        cr.stroke()
+
+        self._draw_spider_emblem(cr, cx, cy, radius / 80.0, theme)
 
     def on_draw_aura(self, _area, cr, width, height):
         """
@@ -1268,91 +1611,7 @@ class LylaHudWindow(Gtk.ApplicationWindow):
     def on_draw(self, _area, cr, width, height):
         cx, cy = width / 2.0, height / 2.0
         radius = min(cx, cy) - 10
-
-        # Background subtle dark circle (color de fondo del tema)
-        cr.arc(cx, cy, radius, 0, 2 * math.pi)
-        cr.set_source_rgba(*self.theme.rgb("background", 0.92))
-        cr.fill()
-
-        if self.theme.animation == "web":
-            # Telaraña estilo Tobey Maguire en lugar de radios rectos + anillos.
-            self._fx_web(cr, cx, cy, radius, self.angle)
-        else:
-            # Spider-Web Radial Lines (color de acento del tema)
-            cr.set_line_width(1.0)
-            cr.set_source_rgba(*self.theme.rgb("accent", 0.28))
-            spokes = 8
-            for i in range(spokes):
-                a = (i * 2 * math.pi / spokes) + self.angle * 0.25
-                cr.move_to(cx, cy)
-                cr.line_to(cx + math.cos(a) * radius, cy + math.sin(a) * radius)
-                cr.stroke()
-
-            # Concentric Web Rings
-            for r_fac in (0.35, 0.62, 0.88):
-                cr.arc(cx, cy, radius * r_fac, 0, 2 * math.pi)
-                cr.stroke()
-
-        # Rotating Outer HUD Arc (color de acento del tema)
-        cr.set_line_width(3.0)
-        cr.set_source_rgba(*self.theme.rgb("accent", 0.85))
-        cr.arc(cx, cy, radius, self.angle, self.angle + math.pi * 0.8)
-        cr.stroke()
-        cr.arc(cx, cy, radius, self.angle + math.pi, self.angle + math.pi * 1.8)
-        cr.stroke()
-
-        # CPU Gauge Arc (color primario del tema)
-        cpu_angle = (self.cpu_pct / 100.0) * (2 * math.pi)
-        cr.set_line_width(4.5)
-        cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
-        cr.arc(cx, cy, radius - 7, -math.pi / 2, -math.pi / 2 + cpu_angle)
-        cr.stroke()
-
-        # Center Stylized Skull-Spider Emblem (color primario del tema)
-        cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
-        cr.set_line_width(2.2)
-
-        # Spider body (diamond/skull shape)
-        cr.move_to(cx, cy - 18)
-        cr.line_to(cx + 11, cy - 4)
-        cr.line_to(cx + 7, cy + 16)
-        cr.line_to(cx, cy + 23)
-        cr.line_to(cx - 7, cy + 16)
-        cr.line_to(cx - 11, cy - 4)
-        cr.close_path()
-        cr.stroke()
-
-        # Glowing eyes (color de acento del tema)
-        cr.set_source_rgba(*self.theme.rgb("accent", 0.95))
-        cr.move_to(cx - 6, cy - 4)
-        cr.line_to(cx - 2, cy - 1)
-        cr.stroke()
-        cr.move_to(cx + 6, cy - 4)
-        cr.line_to(cx + 2, cy - 1)
-        cr.stroke()
-
-        # 8 Sharp Cyber Spider Legs (color primario del tema)
-        cr.set_source_rgba(*self.theme.rgb("primary", 0.95))
-        legs = [
-            ((-9, -8), (-24, -26), (-18, -42)),
-            ((-11, -2), (-32, -10), (-38, -26)),
-            ((-10, 5), (-30, 14), (-34, 32)),
-            ((-7, 12), (-20, 28), (-14, 44)),
-            ((9, -8), (24, -26), (18, -42)),
-            ((11, -2), (32, -10), (38, -26)),
-            ((10, 5), (30, 14), (34, 32)),
-            ((7, 12), (20, 28), (14, 44)),
-        ]
-        for (x1, y1), (x2, y2), (x3, y3) in legs:
-            cr.move_to(cx + x1, cy + y1)
-            cr.line_to(cx + x2, cy + y2)
-            cr.line_to(cx + x3, cy + y3)
-            cr.stroke()
-
-        # Efecto de animación del tema activo (holograma, rayos, brea u orbe).
-        # "web" ya se dibujó en lugar de los radios rectos.
-        if self.theme.animation in ("electric", "symbiote", "orb", "futuristic"):
-            self._draw_theme_fx(cr, cx, cy, radius, self.angle)
+        self._draw_radar_for_theme(cr, cx, cy, radius, self.theme, self.angle, cpu_pct=self.cpu_pct)
 
 
 class LylaApp(Gtk.Application):

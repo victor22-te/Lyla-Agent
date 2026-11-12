@@ -69,12 +69,14 @@ ANIMATION_STYLES = ("futuristic", "electric", "symbiote", "web", "orb")
 # extensión lo lee para actualizar la barra superior y el shell theme.
 # badge: texto corto de la barra superior. shell_theme: directorio del tema
 # en ~/.themes/ (generado a partir de SpiderMan-2099-Cyber por recolor).
+from lyla.core.gnome_theme import apply_desktop_theme
+
 DESKTOP_THEME_META = {
-    "spider-man-2099": {"badge": "2099 // LYLA", "shell_theme": "SpiderMan-2099-Cyber"},
-    "miles-morales": {"badge": "MILES // LYLA", "shell_theme": "SpiderMan-Miles-Morales"},
-    "symbiote": {"badge": "SYMBIOTE // LYLA", "shell_theme": "SpiderMan-Symbiote"},
-    "spider-man-classic": {"badge": "CLASSIC // LYLA", "shell_theme": "SpiderMan-Classic"},
-    "lyla-default": {"badge": "LYLA", "shell_theme": "Lyla-Default"},
+    "spider-man-2099": {"badge": "2099 // LYLA", "shell_theme": "SpiderMan-2099-Cyber", "gnome_accent": "red"},
+    "miles-morales": {"badge": "MILES // LYLA", "shell_theme": "SpiderMan-Miles-Morales", "gnome_accent": "red"},
+    "symbiote": {"badge": "SYMBIOTE // LYLA", "shell_theme": "SpiderMan-Symbiote", "gnome_accent": "slate"},
+    "spider-man-classic": {"badge": "CLASSIC // LYLA", "shell_theme": "SpiderMan-Classic", "gnome_accent": "blue"},
+    "lyla-default": {"badge": "LYLA", "shell_theme": "Lyla-Default", "gnome_accent": "purple"},
 }
 
 
@@ -436,14 +438,23 @@ class ThemeManager:
         return self.default_id
 
     def set_active(self, theme_id: str) -> Theme:
-        """Cambia el tema activo y lo persiste en settings.yaml (sin tocar el resto del archivo)."""
+        """Cambia el tema activo, lo persiste en settings.yaml y sincroniza GNOME."""
         theme = self.get(theme_id)
         if theme is None:
             raise ValueError(f"Tema no encontrado: {theme_id}")
         self._active_id = theme.id
         self._persist_active_id(theme.id)
         self.publish_desktop_theme(theme)
+        self.sync_desktop_theme(theme)
         return theme
+
+    def sync_desktop_theme(self, theme: Optional[Theme] = None) -> None:
+        """Aplica el tema al escritorio GNOME completo (GTK4, GTK3, Shell, Kitty)."""
+        theme = theme or self.active
+        if theme is None:
+            return
+        meta = DESKTOP_THEME_META.get(theme.id, {})
+        apply_desktop_theme(theme, meta)
 
     def _persist_active_id(self, theme_id: str):
         """Escribe theme.active en settings.yaml preservando el resto del archivo y sus comentarios."""
@@ -507,4 +518,53 @@ class ThemeManager:
             mapping[key] = value
             mapping[f"{key}_rgb"] = hex_to_rgb_str(value)
         css = CSS_TEMPLATE.safe_substitute(mapping)
+        # Estilo Apple UI / visionOS sereno para el tema LYLA ("orb")
+        if theme.animation == "orb":
+            css += """
+window.lyla-hud-window {
+    background-color: rgba(18, 20, 32, 0.90);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 20px;
+}
+.lyla-title, .lyla-subtitle, .lyla-metric-label, .lyla-model-badge,
+.lyla-btn, .lyla-btn-status, .lyla-dash-title, .lyla-dash-sub,
+.lyla-entry, .lyla-console-text {
+    font-family: "Inter", "Cantarell", system-ui, sans-serif;
+}
+.lyla-title { color: #f8fafc; font-weight: 700; }
+.lyla-btn, .lyla-btn-status, .lyla-btn-icon, .lyla-btn-mic {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    color: #e2e8f0;
+}
+.lyla-btn:hover, .lyla-btn-status:hover, .lyla-btn-icon:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(56, 189, 248, 0.55);
+    color: #ffffff;
+}
+.lyla-console-frame {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 2px solid #38bdf8;
+    border-radius: 12px;
+}
+.lyla-entry {
+    background-color: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    color: #f8fafc;
+}
+"""
+        elif theme.animation == "symbiote":
+            css += """
+window.lyla-hud-window {
+    background-color: rgba(2, 2, 3, 0.97);
+    border: 2px solid rgba(255, 255, 255, 0.85);
+}
+.lyla-console-frame {
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-left: 3px solid #ffffff;
+}
+"""
         return css.encode("utf-8")

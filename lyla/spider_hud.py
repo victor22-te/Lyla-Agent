@@ -7,7 +7,7 @@ Controls (Normal Mode):
   [v] o Clic en []   : Hablar por micrófono con LYLA (iniciar/detener grabación)
   [s] o Clic en [󰐷]   : Mostrar/Ocultar panel de Status de Modelos (Tokens & Porcentajes %)
   [x]                 : Silenciar la voz de LYLA inmediatamente
-  [m]                 : Cambiar modo de color (2099 Carmesí/Cian, Miles Morales, Simbionte)
+  [m]                 : Cambiar tema (2099, Miles Morales, Simbionte, Spider-Man clásico, LYLA)
   [p]                 : Pulso de Telaraña / Escaneo Multiversal
   [q]                 : Salir del HUD
 """
@@ -275,10 +275,14 @@ def main(stdscr):
     curses.start_color()
     curses.use_default_colors()
 
+    # Modos de color del TUI: MISMO orden que config/themes/ en lyla-agent
+    # (2099, Miles, Simbionte, Clásico, LYLA). [m] cicla entre los 5.
     modes = [
         ("SPIDER-MAN 2099 // MIGUEL O'HARA", curses.COLOR_RED, curses.COLOR_CYAN, curses.COLOR_BLUE),
         ("MILES MORALES // BIO-VENOM GLITCH", curses.COLOR_RED, curses.COLOR_MAGENTA, curses.COLOR_YELLOW),
         ("SYMBIOTE OVERRIDE // BLACK SUIT", curses.COLOR_WHITE, curses.COLOR_CYAN, curses.COLOR_MAGENTA),
+        ("SPIDER-MAN // FRIENDLY NEIGHBORHOOD", curses.COLOR_RED, curses.COLOR_BLUE, curses.COLOR_WHITE),
+        ("LYLA // NEURAL ASSISTANT", curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_WHITE),
     ]
     mode_idx = 0
 
@@ -293,18 +297,22 @@ def main(stdscr):
 
     apply_palette(mode_idx)
 
-    # Si estamos en Kitty, renderizar spider.txt completo con fuente reducida (mini-font) para los 3 trajes
+    # Si estamos en Kitty, renderizar spider.txt completo con fuente reducida (mini-font) para los 5 temas
     spider_png_files = [
         Path("/tmp/lyla_spider_2099.png"),
         Path("/tmp/lyla_spider_2100.png"),
         Path("/tmp/lyla_spider_2101.png"),
+        Path("/tmp/lyla_spider_2102.png"),
+        Path("/tmp/lyla_spider_2103.png"),
     ]
     use_kitty_gfx = is_kitty_terminal() and (cairo is not None) and SPIDER_ASSET_FILE.exists()
     if use_kitty_gfx:
         try:
             ok0 = render_spider_txt_png(spider_png_files[0], (1.0, 0.12, 0.25), (0.0, 0.95, 1.0))
-            render_spider_txt_png(spider_png_files[1], (1.0, 0.12, 0.25), (0.90, 0.20, 1.0))
-            render_spider_txt_png(spider_png_files[2], (0.95, 0.97, 1.0), (0.0, 0.95, 1.0))
+            render_spider_txt_png(spider_png_files[1], (0.90, 0.14, 0.16), (0.0, 0.90, 1.0))
+            render_spider_txt_png(spider_png_files[2], (0.94, 0.94, 0.94), (0.78, 0.49, 1.0))
+            render_spider_txt_png(spider_png_files[3], (0.85, 0.02, 0.16), (0.17, 0.42, 0.69))
+            render_spider_txt_png(spider_png_files[4], (0.55, 0.36, 0.96), (0.13, 0.83, 0.93))
             use_kitty_gfx = ok0
         except Exception:
             use_kitty_gfx = False
@@ -314,6 +322,12 @@ def main(stdscr):
 
     # Inicializar LYLA Engine
     agent = LylaAgent()
+    # Arrancar el TUI con el tema guardado en lyla-agent (mismo orden que config/themes/)
+    try:
+        mode_idx = agent.themes.ordered_ids().index(agent.themes.active_id)
+        apply_palette(mode_idx)
+    except Exception:
+        pass
     voice_enabled = agent.config.audio_enabled
     typing_mode = False
     show_status_panel = False
@@ -324,8 +338,9 @@ def main(stdscr):
     status_banner = "LISTO — Presiona [Enter] o [/] para escribir, [V] para micrófono, [S] para Status de Modelos"
 
     prov_init, mod_init = agent.router.get_active_model()
+    theme = agent.themes.active
     chat_logs = [
-        f"󰯊  LYLA 2099 EN LÍNEA — Modelo activo: {prov_init} ({mod_init})",
+        f"󰯊  {theme.name} EN LÍNEA — Modelo activo: {prov_init} ({mod_init})",
         "Escribe comandos (/comands, /model, /status, /calendar, /alarm, /sys) o habla con LYLA.",
     ]
 
@@ -345,7 +360,8 @@ def main(stdscr):
 
         add_chat_log(f"Víctor > {user_text}")
         is_busy = True
-        status_banner = "  LYLA procesando en la nube 2099..."
+        theme = agent.themes.active
+        status_banner = f"  {theme.name} procesando en la nube..."
 
         def _worker():
             nonlocal voice_enabled, is_busy, status_banner
@@ -493,6 +509,12 @@ def main(stdscr):
                 elif ch in (ord("m"), ord("M")):
                     mode_idx = (mode_idx + 1) % len(modes)
                     apply_palette(mode_idx)
+                    # Sincronizar el tema con LYLA (persona + HUD GTK comparten el mismo tema)
+                    try:
+                        theme_id = agent.themes.ordered_ids()[mode_idx]
+                        agent.set_theme(theme_id)
+                    except Exception:
+                        pass
                     if use_kitty_gfx:
                         kitty_clear_images()
                         last_kitty_state = None
@@ -536,14 +558,14 @@ def main(stdscr):
 
         active_prov, active_mod = agent.router.get_active_model()
         v_badge = " VOZ ON" if voice_enabled else " VOZ OFF"
-        mode_name = modes[mode_idx][0]
+        theme = agent.themes.active
 
         # Header auto-ajustable al ancho de la ventana
         header_candidates = [
-            f"╔══ 󱇪  ALCHEMAX 2099 // LYLA HUD [{mode_name}] • LLM: {active_prov.upper()}:{active_mod} ({v_badge}) ══╗",
-            f"╔══ 󱇪  ALCHEMAX 2099 // LYLA HUD • LLM: {active_prov.upper()}:{active_mod} ({v_badge}) ══╗",
-            f"╔═ 󱇪  LYLA 2099 • {active_prov.upper()}:{active_mod} ({v_badge}) ═╗",
-            f"󱇪 LYLA 2099 • {active_mod} ({v_badge})",
+            f"╔══ 󱇪  {theme.header} • LLM: {active_prov.upper()}:{active_mod} ({v_badge}) ══╗",
+            f"╔══ 󱇪  {theme.header} • LLM: {active_prov.upper()}:{active_mod} ══╗",
+            f"╔═ 󱇪  {theme.name} • {active_prov.upper()}:{active_mod} ({v_badge}) ═╗",
+            f"󱇪 {theme.name} • {active_mod} ({v_badge})",
         ]
         header = header_candidates[-1]
         for hc in header_candidates:
@@ -582,7 +604,7 @@ def main(stdscr):
                     )
                     sense_color = 1 if (total_cpu > 75 or pulse_frames > 0) else 2
                     stdscr.addstr(sense_y + 1, 2, f"│ {wave} │", curses.color_pair(sense_color) | curses.A_BOLD)
-                    status_txt = "ALERTA MULTIVERSAL!" if pulse_frames > 0 else ("CARGA ALTA" if total_cpu > 75 else "SIN ANOMALÍAS (2099)")
+                    status_txt = "ALERTA MULTIVERSAL!" if pulse_frames > 0 else ("CARGA ALTA" if total_cpu > 75 else "SIN ANOMALÍAS")
                     stdscr.addstr(sense_y + 2, 2, f"│ Estado: {status_txt:<18} │", curses.color_pair(4 if total_cpu <= 75 and pulse_frames == 0 else 1) | curses.A_BOLD)
                     stdscr.addstr(sense_y + 3, 2, f"│ Red RX: {rx_rate:6.1f} KB/s        │", curses.color_pair(6))
                     stdscr.addstr(sense_y + 4, 2, f"│ Red TX: {tx_rate:6.1f} KB/s        │", curses.color_pair(6))
@@ -687,9 +709,9 @@ def main(stdscr):
             # CONSOLA INTERACTIVA DE LYLA EN EL HUD (AUTO-AJUSTADA)
             if cy_chat_top < chat_bottom:
                 chat_hdr_candidates = [
-                    "╔══ 󱇪  COMUNICACIÓN NEURAL CON LYLA 2099 (Comandos y Voz Activos) ══╗",
-                    "╔══ 󱇪  COMUNICACIÓN NEURAL CON LYLA 2099 ══╗",
-                    "󱇪  CONSOLA NEURAL LYLA 2099",
+                    f"╔══ 󱇪  COMUNICACIÓN NEURAL CON {theme.name.upper()} (Comandos y Voz Activos) ══╗",
+                    f"╔══ 󱇪  COMUNICACIÓN NEURAL CON {theme.name.upper()} ══╗",
+                    f"󱇪  CONSOLA NEURAL {theme.name.upper()}",
                 ]
                 chat_hdr = chat_hdr_candidates[-1]
                 for chc in chat_hdr_candidates:
